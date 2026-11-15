@@ -201,8 +201,17 @@
     // While the model writes, the page's background sphere is the loader (styles.css, .ask-writing); once a reply lands
     // it settles and the steps stay as "How this answer was made".
     setLoading(true);
+    // Every live answer ends with a Compare action, like a prepared answer: the two top-ranked records as a pair, one
+    // record with the other left to pick, or the Compare page itself when no record was ranked.
+    const compareAction = i => {
+      const [x, y] = a.ranks.filter(r => r.comparable);
+      const [href, label] = x && y ? [`compare.html?ids=${encodeURIComponent(x.id)},${encodeURIComponent(y.id)}&q=${encodeURIComponent(query)}`, `Compare ${esc(x.name)} and ${esc(y.name)}`]
+        : x ? [`compare.html?a=${encodeURIComponent(x.id)}`, `Compare ${esc(x.name)} with…`] : ['compare.html', 'Open Compare'];
+      return `<div class="next rise" style="--i:${i}"><a class="btn btn-ink" href="${href}">${label} ${ICON.arrow}</a></div>`;
+    };
     // No answer to show: the neutral title and today's message take the headline's place.
-    const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden'); settle('fallback');
+    const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden');
+      if (!box.querySelector('.next')) status.insertAdjacentHTML('afterend', compareAction(0)); settle('fallback');
       const sources = document.getElementById('sources'); if (sources) sources.open = true; };
     // The loading stage ends: the sphere settles, and the excerpts and record chips (hidden while loading) arrive after the answer's lines.
     const settle = state => { clearTimeout(toFound); clearTimeout(toWriting); setLoading(false);
@@ -281,10 +290,7 @@
       document.getElementById('ask-lines').innerHTML = others.map(sentence).join('');
       document.getElementById('ask-support').innerHTML =
         `<button class="verified rise" style="--i:${n}" type="button" id="verified">${ICON.check}${esc(n)} passed the checker, ${esc(body.removed)} removed${reused ? ` · asked before, ${at(body)} AST` : Number.isFinite(body.seconds) ? ` · ${body.seconds} s` : ''}</button>`;
-      // The same Compare button as a prepared answer, when the two top-ranked records can be compared.
-      const pair = a.ranks.slice(0, 2);
-      if (pair.length === 2 && pair.every(r => r.comparable)) document.getElementById('ask-support').insertAdjacentHTML('afterend',
-        `<div class="next rise" style="--i:${n + 1}"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(pair[0].id)},${encodeURIComponent(pair[1].id)}&q=${encodeURIComponent(query)}">Compare ${esc(pair[0].name)} and ${esc(pair[1].name)} ${ICON.arrow}</a></div>`);
+      document.getElementById('ask-support').insertAdjacentHTML('afterend', compareAction(n + 1));
       settle(reused ? 'reused' : 'done');
     } catch {
       clearInterval(timer);
@@ -363,6 +369,14 @@
       const b = e.target.closest('[data-ask]');
       if (b) { input.value = b.dataset.ask; form.requestSubmit(); }
     });
+  }
+  // The nav's "Ask & browse" link lands on the home page's Ask section: scrolled into place with the box focused, on
+  // arrival and when the link is clicked on the home page itself.
+  const askSection = !isAnswerPage && form && document.getElementById('ask');
+  if (askSection) {
+    const land = () => { if (location.hash !== '#ask') return; askSection.scrollIntoView({behavior: 'auto', block: 'start'}); input.focus({preventScroll: true}); };
+    land(); addEventListener('load', land); addEventListener('hashchange', land);
+    document.addEventListener('click', e => { if (e.target.closest('a[href$="index.html#ask"]')) setTimeout(land, 0); });
   }
   if (isAnswerPage) {
     const q = new URLSearchParams(location.search).get('q');
