@@ -204,13 +204,17 @@
     // Every live answer ends with a Compare action, like a prepared answer: the two top-ranked records as a pair, one
     // record with the other left to pick, or the Compare page itself when no record was ranked.
     const compareAction = i => {
-      const [x, y] = a.ranks.filter(r => r.comparable);
+      const pick = a.compare && a.compare.map(id => a.ranks.find(r => r.id === id)).filter(Boolean);
+      const [x, y] = pick?.length === 2 ? pick : a.ranks.filter(r => r.comparable);
       const [href, label] = x && y ? [`compare.html?ids=${encodeURIComponent(x.id)},${encodeURIComponent(y.id)}&q=${encodeURIComponent(query)}`, `Compare ${esc(x.name)} and ${esc(y.name)}`]
         : x ? [`compare.html?a=${encodeURIComponent(x.id)}`, `Compare ${esc(x.name)} with…`] : ['compare.html', 'Open Compare'];
       return `<div class="next rise" style="--i:${i}"><a class="btn btn-ink" href="${href}">${label} ${ICON.arrow}</a></div>`;
     };
     // No answer to show: the neutral title and today's message take the headline's place.
+    // The team's limitation for this question (the airflow question has one) sits under the answer, marked as the team's note.
+    const note = i => a.note ? `<p class="limit rise" style="--i:${i}"><span class="mono">Limitation</span><span>${esc(a.note)} <span class="mono by">Team’s note, not model text</span></span></p>` : '';
     const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden');
+      document.getElementById('ask-support').innerHTML = note(0);
       if (!box.querySelector('.next')) status.insertAdjacentHTML('afterend', compareAction(0)); settle('fallback');
       const sources = document.getElementById('sources'); if (sources) sources.open = true; };
     // The loading stage ends: the sphere settles, and the excerpts and record chips (hidden while loading) arrive after the answer's lines.
@@ -289,8 +293,8 @@
       document.getElementById('ask-lede')?.remove();
       document.getElementById('ask-lines').innerHTML = others.map(sentence).join('');
       document.getElementById('ask-support').innerHTML =
-        `<button class="verified rise" style="--i:${n}" type="button" id="verified">${ICON.check}${esc(n)} passed the checker, ${esc(body.removed)} removed${reused ? ` · asked before, ${at(body)} AST` : Number.isFinite(body.seconds) ? ` · ${body.seconds} s` : ''}</button>`;
-      document.getElementById('ask-support').insertAdjacentHTML('afterend', compareAction(n + 1));
+        `<button class="verified rise" style="--i:${n}" type="button" id="verified">${ICON.check}${esc(n)} passed the checker, ${esc(body.removed)} removed${reused ? ` · asked before, ${at(body)} AST` : Number.isFinite(body.seconds) ? ` · ${body.seconds} s` : ''}</button>` + note(n + 1);
+      document.getElementById('ask-support').insertAdjacentHTML('afterend', compareAction(n + (a.note ? 2 : 1)));
       settle(reused ? 'reused' : 'done');
     } catch {
       clearInterval(timer);

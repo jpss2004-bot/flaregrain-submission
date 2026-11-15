@@ -28,6 +28,10 @@ const PREPARED = 'How long did the flame take to go out after airflow was cut?';
 // Off (the default): /api/ask is today's, and nothing reaches a proxy.
 let a = await ask(Q);
 expect('off: no reading, no ranked sources, today\'s message', !a.reading && a.ranks.length === 0 && a.passages.length === 0 && /didn’t find a checked NASA record that answers this directly/.test(a.limitation), JSON.stringify(a).slice(0, 200));
+const LIMIT = 'The cited passages give no elapsed time from airflow shutoff to extinction in seconds. In Saffire, 420 seconds is the time up to shutoff.';
+const prepared = await ask(PREPARED);
+expect('off: the airflow question keeps the team\'s prepared answer', prepared.status === 'supported' && prepared.findings.length === 2 && !prepared.reading && !prepared.note &&
+  prepared.limitation === LIMIT && String(prepared.compare) === 'B1,S1' && prepared.supportingSources.length === 2);
 let r = await reading({q: Q});
 expect('off: the reading endpoint falls back at once', r.status === 200 && r.body.status === 'fallback' && r.body.reason === 'off');
 process.env.FLAREGRAIN_MINI_EXPLAIN_URL = proxyUrl;
@@ -36,7 +40,16 @@ expect('the proxy address alone does not switch it on', !a.reading && seen.lengt
 
 process.env.FLAREGRAIN_LIVE_ASK = '1';
 a = await ask(PREPARED);
-expect('on: the prepared answer is unchanged', a.status === 'supported' && a.findings.length === 2 && !a.reading);
+const rankedAir = await rankSources(PREPARED);
+expect('on: the airflow question has no prepared answer; it gets ranked sources and a reading like any other',
+  a.status === 'no-match' && a.findings.length === 0 && a.supportingSources.length === 0 && a.reading?.live === true &&
+  String(a.ranks.map(x => x.id)) === String(rankedAir.records) && a.passages.length === rankedAir.passages.length &&
+  a.reading.facts === askFacts(rankedAir.records, rankedAir.passages, rankedAir.reports).facts.length, JSON.stringify(a).slice(0, 300));
+expect('on: retrieval ranks BASS-II B1 and Saffire I-1 as the top two records for it', rankedAir.records.slice(0, 2).sort().join() === 'B1,S1', String(rankedAir.records));
+expect('on: the team\'s limitation travels as a note, and Compare keeps the prepared pair', a.note === LIMIT && String(a.compare) === 'B1,S1');
+expect('on: the hand-written sentences are not sent', !JSON.stringify(a).includes('went out quickly after airflow was stopped') && !JSON.stringify(a).includes('went out immediately when airflow stopped'));
+a = await ask(Q);
+expect('on: other questions carry no team note', a.reading?.live === true && a.note === undefined && a.compare === null);
 a = await ask('what are the biggest dangers in space');
 expect('on: an off-topic question gets the scope note and no reading', !a.reading && /Flaregrain covers NASA fire experiments/.test(a.limitation) && a.ranks.length === 0);
 a = await ask(Q);
@@ -53,6 +66,14 @@ const good = body => [200, {q: body.q, records: body.records, passages: body.pas
 reply = good;
 r = await reading({q: Q});
 const sent = JSON.parse(seen.at(-1).body);
+{ const air = askFacts(rankedAir.records, rankedAir.passages, rankedAir.reports);
+  reply = body => [200, {q: body.q, records: body.records, passages: body.passages, model: 'qwen3:4b', seconds: 7.2, factsHash: air.digest,
+    passed: [{text: 'A checked sentence about the airflow cut.', cites: ['F1'], problems: []}], removed: []}];
+  const live = await reading({q: PREPARED}), went = JSON.parse(seen.at(-1).body);
+  expect('on: the airflow question goes to the model with its ranked sources', went.q === 'how long did the flame take to go out after airflow was cut' &&
+    String(went.records) === String(rankedAir.records) && String(went.passages) === String(rankedAir.passages));
+  expect('on: its checked sentence comes back as a model answer', live.body.status === 'ok' && live.body.sentences.length === 1 && live.body.factsHash === air.digest, JSON.stringify(live.body).slice(0, 200));
+  reply = good; }
 expect('the proxy gets only the question and the ranked source IDs', Object.keys(sent).sort().join() === 'passages,q,records' && sent.q === PLAIN &&
   String(sent.records) === String(ranked.records) && String(sent.passages) === String(ranked.passages));
 expect('a matching answer comes back with each sentence\'s NASA links and the removed count, no removed text',
