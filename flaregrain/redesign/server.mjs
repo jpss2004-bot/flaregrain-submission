@@ -178,19 +178,27 @@ async function askSources() {
       const tf = docs.map(tokens => tokens.reduce((map, word) => map.set(word, (map.get(word) || 0) + 1), new Map()));
       const df = new Map(); tf.forEach(map => map.forEach((_, word) => df.set(word, (df.get(word) || 0) + 1)));
       const avg = docs.reduce((sum, tokens) => sum + tokens.length, 0) / Math.max(1, docs.length);
-      return query => tf.map((map, i) => query.reduce((score, word) => {
+      return Object.assign(query => tf.map((map, i) => query.reduce((score, word) => {
         const f = map.get(word); if (!f) return score;
         const idf = Math.log(1 + (docs.length - df.get(word) + 0.5) / (df.get(word) + 0.5));
         return score + idf * f * 2.2 / (f + 1.2 * (0.25 + 0.75 * docs[i].length / avg));
-      }, 0));
+      }, 0)), {tf, df});
     };
     const recordIds = [...comparable];
     const recordText = id => { const r = checked.get(id); return [r.name, r.study, r.investigation, r.events, r.observation, ...r.fields.map(f => f.field + ' ' + f.value)].join(' '); };
     askData = {reports, recordIds, scoreRecords: index(recordIds.map(id => askTokens(recordText(id)))),
-      scorePassages: index(reports.passages.map(p => askTokens(p[2])))};
+      scorePassages: index(reports.passages.map(p => askTokens(p[2]))), frontMatter: reports.passages.map(p => frontMatter(p[2]))};
   } catch (error) { console.error('Ask: report passages unavailable', error.message); askData = false; }
   return askData || null;
 }
+// Report pages that never answer a question: contents, acronym and reference lists, acknowledgements, the NASA STI notice.
+const frontMatter = text => /^\s*(?:table of contents|contents|acronyms|abbreviations|acknowledg|references|nomenclature|report documentation page)\b/i.test(text) ||
+  /nasa sti program|trade names and trademarks/i.test(text) || (text.match(/\.{5,}/g) || []).length >= 3 || (text.match(/\b(?:vol|pp)\.\s/g) || []).length >= 4 ||
+  ((text.match(/[A-Z][A-Za-z'’-]+,\s+(?:[A-Z]\.|[A-Z][a-z]+)[^:]{0,80}:\s/g) || []).length >= 2 && (text.match(/\b(?:19|20)\d\d\b/g) || []).length >= 2);
+// Question words that say nothing about which report page answers it. They still score, but don't count as a passage's matched
+// words; records are ranked as before.
+const askGeneric = new Set(askTokens('change use used using fast level happen effect affect make made many much long take go out after kind type way show find know tell ' +
+  'happened changes affects effects differ difference different compare during work'));
 const passageLabel = doc => doc.name + ' report';
 // Rank the published sources for a question. Returns null when the question is outside fire science.
 export async function rankSources(query) {
@@ -199,7 +207,14 @@ export async function rankSources(query) {
   if (!src || !words.length || !fireWords.test(query)) return null;
   const top = (scores, n, min) => scores.map((score, i) => [score, i]).filter(([score]) => score >= min).sort((a, b) => b[0] - a[0]).slice(0, n);
   const recs = top(src.scoreRecords(words), liveAsk.limits.records, 0.5).map(([, i]) => src.recordIds[i]);
-  const pas = top(src.scorePassages(words), 3, 3).map(([, i]) => i);
+  // Passages: hyphenated words also count by their parts. A page must not be front matter and must match two of the
+  // question's specific words (askGeneric left out), or one word found on fewer than 1% of pages; if none does, the best
+  // pages by score are kept as before, so a fire question never loses its passages to this filter.
+  const all = [...new Set(words.flatMap(word => word.includes('-') ? [word, ...askTokens(word.replaceAll('-', ' '))] : [word]))];
+  const specific = all.filter(word => !askGeneric.has(word)), {tf, df} = src.scorePassages, scores = src.scorePassages(all);
+  const need = Math.min(2, specific.length), hits = tf.map(map => specific.reduce((n, word) => n + (map.has(word) ? (df.get(word) * 100 < tf.length ? 2 : 1) : 0), 0));
+  let pas = top(scores.map((score, i) => hits[i] >= need && !src.frontMatter[i] ? score : 0), 3, 3).map(([, i]) => i);
+  if (!pas.length) pas = top(scores.map((score, i) => src.frontMatter[i] ? 0 : score), 3, 3).map(([, i]) => i);
   return recs.length || pas.length ? {words, records: recs, passages: pas, reports: src.reports} : null;
 }
 function snippet(text, words) {
