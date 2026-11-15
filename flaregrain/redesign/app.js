@@ -21,9 +21,31 @@
   const input = document.getElementById('ask-input');
   const served = location.protocol !== 'file:';
   let latest = 0;
+  // The loader: 0 = the sphere rests in the background, 1 = it is alive beside the answer. It eases between the two over
+  // 1.2 s; the particle loop below reads it every frame. Reduced motion: no movement, the value switches at once.
+  const orb = {from: 0, to: 0, t0: 0, still: null};
+  const LOAD_MS = 1200;
+  const loadValue = now => { if (reduced) return orb.to; const t = clamp((now - orb.t0) / LOAD_MS, 0, 1); return orb.from + (orb.to - orb.from) * (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2); };
+  function setLoading(on) {
+    if (orb.to === (on ? 1 : 0)) return;
+    const now = performance.now(); orb.from = loadValue(now); orb.to = on ? 1 : 0; orb.t0 = now;
+    document.documentElement.classList.toggle('ask-writing', on);
+    if (orb.still) orb.still();
+  }
   let thread = [];  // history for this page, newest last
   // Snippets arrive with <mark> around matched words; everything else is escaped.
   const marked = s => esc(s).replace(/&lt;mark&gt;/g, '<mark>').replace(/&lt;\/mark&gt;/g, '</mark>');
+  // An excerpt of about two lines: the snippet cut at a word near 170 characters, its <mark> tags kept whole.
+  const shorten = (snippet, max = 170) => {
+    let out = '', used = 0, open = false;
+    for (const part of String(snippet).split(/(<\/?mark>)/)) {
+      if (part === '<mark>' || part === '</mark>') { open = part === '<mark>'; out += part; continue; }
+      if (used + part.length <= max) { out += part; used += part.length; continue; }
+      const room = part.slice(0, max - used), cutAt = room.lastIndexOf(' ');
+      return out + (cutAt > 0 ? room.slice(0, cutAt) : room).trimEnd() + (open ? '</mark>' : '') + ' …';
+    }
+    return out;
+  };
   const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
   const HEAD = {
@@ -83,7 +105,7 @@
     const sourceParts = [
       passagesWithExcerpt.length && plural(passagesWithExcerpt.length, 'cited passage', 'cited passages'),
       a.ranks.length && plural(a.ranks.length, a.ranks.every(r => !r.psiRow) ? 'checked record' : 'ranked record', a.ranks.every(r => !r.psiRow) ? 'checked records' : 'ranked records'),
-      a.passages.length && plural(a.passages.length, 'NASA report page', 'NASA report pages'),
+      !live && a.passages.length && plural(a.passages.length, 'NASA report page', 'NASA report pages'),
       a.investigations.length && plural(a.investigations.length, 'ranked investigation', 'ranked investigations')].filter(Boolean);
     // One layout for every answer: question, headline, supporting lines, status badge, then (How we know).
     // A model-written answer fills the same places once it lands; its label stays on the block that holds its sentences.
@@ -100,7 +122,11 @@
           </details>
         </div>
         <p class="small" id="ask-reading-status" role="status">The live model is writing an answer from the sources below. Only sentences the checker matches to them are shown.</p>
-      </section>` : `<${H} class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : HEAD[a.status]}</${H}>
+      </section>
+      ${a.passages.length ? `<section class="says line-in" style="--d:3" aria-labelledby="says-h">
+        <span class="mono" id="says-h">What the sources say</span>
+        <ul>${a.passages.map(p => `<li><q>${marked(shorten(p.snippet))}</q> <a class="cite-link" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.report)} report · p. ${esc(p.page)} ${ICON.out}</a></li>`).join('')}</ul>
+      </section>` : ''}` : `<${H} class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : HEAD[a.status]}</${H}>
       ${lead ? `<p class="cite-row line-in" style="--d:1">${cite(lead)}</p>` : ''}
       ${rest.map((f, i) => `<p class="plain line-in" style="--d:${2 + i}">${esc(f.text)} ${cite(f)}</p>`).join('')}
       ${!lead && a.limitation ? `<p class="plain line-in" style="--d:2">${a.status === 'table' ? mk('psi') + ' ' : ''}${esc(a.limitation)}</p>` : ''}
@@ -115,11 +141,11 @@
     slot.innerHTML = `
       ${top}
       ${sourceParts.length ? `<section class="how line-in" style="--d:5">
-        <details class="related sources" id="sources"><summary class="mono">${a.ranks.length || passagesWithExcerpt.length || a.passages.length ? 'Sources' : 'Closest evidence'}: ${sourceParts.join(' · ')}</summary>
+        <details class="related sources" id="sources" open><summary class="mono">${a.ranks.length || passagesWithExcerpt.length || (!live && a.passages.length) ? 'Sources' : 'Closest evidence'}: ${sourceParts.join(' · ')}</summary>
         ${passagesWithExcerpt.length ? `<div class="chips">${passagesWithExcerpt.map(passageChip).join('')}</div>` : ''}
         ${a.ranks.length ? `<div class="chips">${a.ranks.slice(0, 4).map((r, i) => recordChip(r, i, shownUrls)).join('')}</div>` : ''}
         ${a.ranks.length > 4 ? `<details class="related"><summary class="mono">${plural(a.ranks.length - 4, 'more ranked record', 'more ranked records')}</summary><div class="chips">${a.ranks.slice(4).map((r, i) => recordChip(r, i + 4, shownUrls)).join('')}</div></details>` : ''}
-        ${investigations}${passages}
+        ${investigations}${live ? '' : passages}
         </details>
       </section>` : ''}`;
     slot.hidden = false;
@@ -148,19 +174,21 @@
     if (!box || !status || !steps || !made) return;
     // While the model writes, the page's background sphere is the loader (styles.css, .ask-writing); once a reply lands
     // it settles and the steps stay as "How this answer was made".
-    document.documentElement.classList.add('ask-writing');
+    const loadTimer = setTimeout(() => { if (ticket === latest && box.isConnected) setLoading(true); }, 300); // an answer asked before returns first
     // No answer to show: the neutral title and today's message take the headline's place.
     const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden'); settle('fallback', true);
       const sources = document.getElementById('sources'); if (sources) sources.open = true; };
-    const settle = (state, open) => { document.documentElement.classList.remove('ask-writing'); box.dataset.state = state; made.open = open; made.querySelector('summary').textContent = 'How this answer was made'; };
+    const settle = (state, open) => { clearTimeout(loadTimer); setLoading(false); // Hold the block's height while the answer swaps in, so nothing below jumps; then let it ease to its own height.
+      box.style.minHeight = box.offsetHeight + 'px';
+      setTimeout(() => { if (box.isConnected) box.style.minHeight = '0px'; }, 1000); box.dataset.state = state; made.open = open; made.querySelector('summary').textContent = 'How this answer was made'; };
     const step = (n, state, html) => { const li = steps.children[n - 1]; li.dataset.state = state; li.querySelector('.st').innerHTML = html; };
     const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     step(1, 'done', `${count(a.ranks.length, 'checked record', 'checked records')} and ${count(a.passages.length, 'NASA report page', 'NASA report pages')}, ranked for this question`);
     step(2, 'done', `${count(a.reading.facts || 0, 'numbered fact', 'numbered facts')} from those sources`);
     const started = Date.now();
-    const writing = () => step(3, 'active', `qwen3:4b on the team’s Mac mini is writing… <span class="tick">${Math.floor((Date.now() - started) / 1000)} s</span>`);
-    writing();
-    const timer = setInterval(() => { if (box.isConnected) writing(); else clearInterval(timer); }, 1000);
+    step(3, 'active', `qwen3:4b on the team’s Mac mini is writing… <span class="tick">0 s</span>`);
+    const tick = steps.children[2].querySelector('.tick'); // only the counter changes each second
+    const timer = setInterval(() => { if (box.isConnected) tick.textContent = Math.floor((Date.now() - started) / 1000) + ' s'; else clearInterval(timer); }, 1000);
     const reasonList = list => {
       const counts = new Map(); (list || []).forEach(r => counts.set(r, (counts.get(r) || 0) + 1));
       return counts.size ? `<ul class="ask-reasons">${[...counts].map(([r, n]) => `<li>${esc(r)}${n > 1 ? ` (${n})` : ''}</li>`).join('')}</ul>` : '';
@@ -201,18 +229,19 @@
         return `<a class="cite-link" href="${esc(src.url)}" target="_blank" rel="noopener" title="${esc(src.label)}">${esc(name)}${page ? ' · p. ' + esc(page) : ''} ${ICON.out}</a>`;
       };
       const links = s => `<span class="cites-inline">${s.sources.map(short).join(' ')}</span>`;
-      const line = s => `<p class="plain">${esc(s.text)} ${links(s)}</p>`;
-      const [first, ...others] = body.sentences, reused = body.cached && body.generatedAt;
-      document.getElementById('answer-h').innerHTML = `${esc(first.text)} ${links(first)}`;
+      const line = (s, i) => `<p class="plain rise" style="--i:${i + 1}">${esc(s.text)} ${links(s)}</p>`;
+      const [first, ...others] = body.sentences, reused = body.cached && body.generatedAt, n = body.sentences.length;
+      // The answer arrives line by line: headline, then each sentence, then the badge and Compare.
+      const h = document.getElementById('answer-h');
+      h.innerHTML = `${esc(first.text)} ${links(first)}`; h.classList.add('rise');
       document.getElementById('ask-lede')?.remove();
-      document.getElementById('ask-lines').innerHTML = others.slice(0, 2).map(line).join('') +
-        (others.length > 2 ? `<details class="related"><summary class="mono">Show the full answer</summary>${others.slice(2).map(line).join('')}</details>` : '');
+      document.getElementById('ask-lines').innerHTML = others.map(line).join('');
       document.getElementById('ask-support').innerHTML =
-        `<button class="verified" type="button" id="verified">${ICON.check}${esc(body.sentences.length)} passed the checker, ${esc(body.removed)} removed${reused ? ` · asked before, ${at(body)} AST` : Number.isFinite(body.seconds) ? ` · ${body.seconds} s` : ''}</button>`;
+        `<button class="verified rise" style="--i:${n}" type="button" id="verified">${ICON.check}${esc(n)} passed the checker, ${esc(body.removed)} removed${reused ? ` · asked before, ${at(body)} AST` : Number.isFinite(body.seconds) ? ` · ${body.seconds} s` : ''}</button>`;
       // The same Compare button as a prepared answer, when the two top-ranked records can be compared.
       const pair = a.ranks.slice(0, 2);
       if (pair.length === 2 && pair.every(r => r.comparable)) document.getElementById('ask-support').insertAdjacentHTML('afterend',
-        `<div class="next"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(pair[0].id)},${encodeURIComponent(pair[1].id)}&q=${encodeURIComponent(query)}">Compare ${esc(pair[0].name)} and ${esc(pair[1].name)} ${ICON.arrow}</a></div>`);
+        `<div class="next rise" style="--i:${n + 1}"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(pair[0].id)},${encodeURIComponent(pair[1].id)}&q=${encodeURIComponent(query)}">Compare ${esc(pair[0].name)} and ${esc(pair[1].name)} ${ICON.arrow}</a></div>`);
       settle(reused ? 'reused' : 'done', false);
       status.textContent = ''; status.hidden = true;
     } catch {
@@ -232,7 +261,7 @@
         <pre>cd server && node server.mjs</pre><p>Then open <a href="http://127.0.0.1:8790/">http://127.0.0.1:8790/</a>.</p></div>`);
     }
     const ticket = ++latest;
-    document.documentElement.classList.remove('ask-writing');
+    setLoading(false);
     message(`<p class="searching mono" role="status">Searching the NASA records…</p>`);
     if (scroll) slot.scrollIntoView({behavior: reduced ? 'auto' : 'smooth', block: 'start'});
     try {
@@ -398,10 +427,10 @@
     function size() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
     size(); addEventListener('resize', size);
     return {
-      draw(time, morph, rx, ry, x, s) {
+      draw(time, morph, rx, ry, x, s, y) {
         uniforms.uTime.value = time; uniforms.uMorph.value = morph;
         glowU.uTime.value = time; glowU.uMorph.value = morph;
-        group.rotation.set(rx, ry, 0); group.position.x = x; group.position.y = (innerWidth < 760 && !isAnswerPage) ? .66 : 0; group.scale.setScalar(s);
+        group.rotation.set(rx, ry, 0); group.position.x = x; group.position.y = y; group.scale.setScalar(s);
         renderer.render(scene, camera);
       }
     };
@@ -432,8 +461,34 @@
 
   const offX = () => isAnswerPage ? (innerWidth < 760 ? 0 : 2.5) : 0;
   const scale = () => (isAnswerPage ? .55 : 1) * (innerWidth < 760 ? .76 : 1); // phone: room for the larger hero text
+  const baseY = () => (innerWidth < 760 && !isAnswerPage) ? .66 : 0;
+  // Where the sphere is drawn. At rest it sits in the page background. While the model writes it eases
+  // to a clear place beside the answer (the home page's Ask box included), grows a little, brightens to the home page's microgravity blue with a faint warm core, and breathes slowly.
+  const WIDE = 1100; // below this the answer column has no room beside it
+  const HALF_H = Math.tan(17.5 * Math.PI / 180) * 6, ORB_R = 1.08; // camera: 35° at z = 6; the sphere's radius at scale 1
+  function pose(now, fade) {
+    const k = loadValue(now), W = innerWidth, Hh = innerHeight, halfW = HALF_H * W / Hh, unit = (Hh / 2) / HALF_H; // px per world unit
+    let x = offX(), y = baseY(), s = scale();
+    const wide = W >= WIDE;
+    if (k > 0 && !reduced && wide) {
+      const right = (W + 720) / 2 - 90, room = W - right, r = Math.min(170, room / 2 - 24), cx = right + room / 2, cy = Hh / 2 + .1 * unit;
+      const lerp = (a, b) => a + (b - a) * k;
+      x = lerp(x, (cx - W / 2) / unit); y = lerp(y, .1 - (cy - Hh / 2) / unit);
+      s = lerp(s, r / unit / ORB_R) * (1 + k * .03 * Math.sin(now / 1000 * 2 * Math.PI / 3.6));
+    }
+    const breathe = reduced ? 1 : .94 + .06 * Math.sin(now / 1000 * 2 * Math.PI / 3.6);
+    // Wide: the sphere brightens. Narrower (phones, tablets): there is no clear place for it, so it fades out while loading.
+    if (canvas && k > 0) canvas.style.opacity = wide ? fade + (1 - fade) * k * breathe : fade * (1 - k); // at rest applyChrome's value stands
+    if (glow && isAnswerPage) { // the warm core, moved with transform and opacity only (the home page keeps its hero glow)
+      const r = s * ORB_R * unit;
+      glow.style.transform = `translate3d(${(W / 2 + x * unit - 150).toFixed(1)}px,${(Hh / 2 - (y - .1) * unit - 150).toFixed(1)}px,0) scale(${(r / 150 * 1.25).toFixed(3)})`;
+      glow.style.opacity = wide ? (k * .9 * breathe).toFixed(3) : '0';
+    }
+    return {x, y, s};
+  }
   if (reduced) {
-    const still = () => { const s = readScroll(); applyChrome(s.morph, s.fade); if (flame) flame.draw(2.3, s.morph, 0, 0, offX(), scale()); };
+    const still = () => { const s = readScroll(); applyChrome(s.morph, s.fade); const p = pose(0, s.fade); if (flame) flame.draw(2.3, s.morph, 0, 0, p.x, p.s, p.y); };
+    orb.still = still;
     addEventListener('scroll', still, { passive: true }); addEventListener('resize', still); still();
   } else {
     const t0 = performance.now();
@@ -441,7 +496,8 @@
       const s = readScroll();
       applyChrome(s.morph, s.fade);
       rot.x += (rot.tx - rot.x) * .05; rot.y += (rot.ty - rot.y) * .05;
-      if (flame && s.fade > .02 && !document.hidden) flame.draw((now - t0) / 1000, s.morph, rot.x, rot.y + (now - t0) / 9000, offX(), scale());
+      const p = pose(now, s.fade);
+      if (flame && s.fade > .02 && !document.hidden) flame.draw((now - t0) / 1000, s.morph, rot.x, rot.y + (now - t0) / 9000, p.x, p.s, p.y);
       requestAnimationFrame(loop);
     })(t0);
   }
