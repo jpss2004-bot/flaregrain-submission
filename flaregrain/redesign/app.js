@@ -364,6 +364,14 @@
       if (b) { input.value = b.dataset.ask; form.requestSubmit(); }
     });
   }
+  // The nav's "Ask & browse" link lands on the home page's Ask section: scrolled into place with the box focused, on
+  // arrival and when the link is clicked on the home page itself.
+  const askSection = !isAnswerPage && form && document.getElementById('ask');
+  if (askSection) {
+    const land = () => { if (location.hash !== '#ask') return; askSection.scrollIntoView({behavior: 'auto', block: 'start'}); input.focus({preventScroll: true}); };
+    land(); addEventListener('load', land); addEventListener('hashchange', land);
+    document.addEventListener('click', e => { if (e.target.closest('a[href$="index.html#ask"]')) setTimeout(land, 0); });
+  }
   if (isAnswerPage) {
     const q = new URLSearchParams(location.search).get('q');
     if (q) { input.value = q; ask(q, {scroll: false}); }
