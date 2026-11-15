@@ -153,7 +153,7 @@ body:not(.page-answer) .ask:has(> .answer:not([hidden])){justify-content:flex-st
 .verified:active{transform:scale(.97)}
 .verified svg{width:15px;height:15px}
 .answer.play .line-in{animation:lineIn .8s var(--ease) backwards;animation-delay:calc(var(--d,0)*110ms)}
-@keyframes lineIn{from{opacity:0;transform:translateY(14px);filter:blur(4px)}}
+@keyframes lineIn{from{opacity:0;transform:translateY(14px)}}
 
 /* Layer 2: chips + compact cards */
 .how{margin-top:44px;padding-top:24px;border-top:1px solid var(--line)}
@@ -254,6 +254,7 @@ dialog.drawer[open]{animation:drawIn .5s var(--ease)}
   html{scroll-behavior:auto}
   *,*::before,*::after{animation:none!important;transition:none!important}
   .reveal,.line-in{opacity:1!important;transform:none!important;filter:none!important}
+  .answer{transform:none!important}
 }
 @media (max-width:1100px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.card{min-height:360px}.card .icon{height:180px}}
 /* Up to 900 px the one-line nav does not fit beside the brand (on phones it ran off-screen over the brand, and a longer
@@ -371,14 +372,30 @@ dialog.drawer[open]{animation:drawIn .5s var(--ease)}
 .verified{text-align:left}
 .how > .sources{margin-top:0}
 .how > .sources > summary{padding:0;min-height:24px;color:var(--muted)}
+.how{margin-top:36px}
 .how > .sources[open] > summary{margin-bottom:14px}
-/* The loader: while the model writes, the page's background sphere glows and gently pulses in the microgravity flame's
-   blue. It starts after a moment, so an answer asked before (which returns at once) never flashes it. */
-.stage-canvas,.glow{transition:opacity .8s var(--ease),filter .8s var(--ease)}
-.ask-writing .stage-canvas{animation:sphereLoad 2.8s .4s ease-in-out infinite}
-@keyframes sphereLoad{0%,100%{opacity:.7;filter:saturate(1.8) brightness(1.05) hue-rotate(10deg)}50%{opacity:1;filter:saturate(2.4) brightness(1.3) hue-rotate(10deg)}}
-@media (max-width:760px){@keyframes sphereLoad{0%,100%{opacity:.5;filter:saturate(1.8) brightness(1.05) hue-rotate(10deg)}50%{opacity:.8;filter:saturate(2.4) brightness(1.25) hue-rotate(10deg)}}}
-@media (prefers-reduced-motion:reduce){.ask-writing .stage-canvas{opacity:.8!important;filter:saturate(2.2) brightness(1.2) hue-rotate(10deg)}}
+/* The loader: while the model writes, the page's background sphere comes alive beside the answer and the answer column
+   steps aside, then both ease back (app.js, pose). Only transform and opacity move. */
+.page-answer .answer{width:min(720px,100%)}
+.answer{transition:transform 1.2s cubic-bezier(.65,0,.35,1)}
+html body.page-answer .glow{left:0;top:0;right:auto;bottom:auto;width:300px;height:300px;opacity:0;will-change:transform,opacity;filter:blur(16px);
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--ember) 38%,transparent),color-mix(in srgb,var(--t2) 16%,transparent) 55%,transparent)}
+.reading-block.ask-reading{transition:min-height .9s cubic-bezier(.65,0,.35,1)}
+@media (min-width:1100px){.ask-writing .answer{transform:translateX(-90px)}}
+/* The answer arrives line by line with a soft fade and rise. */
+.rise{animation:riseIn .6s var(--ease) backwards;animation-delay:calc(var(--i,0)*80ms)}
+@keyframes riseIn{from{opacity:0;transform:translateY(10px)}}
+.ask-steps > li:not([data-state=pending]){animation:stepIn .45s var(--ease) backwards}
+@keyframes stepIn{from{opacity:.45}}
+.ask-steps .tick{display:inline-block;min-width:4ch}
+/* What the sources say: one excerpt from each ranked NASA report page. */
+.says{margin-top:36px}
+.says > .mono{color:var(--muted);display:block}
+.says ul{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:14px}
+.says li{padding-left:14px;border-left:2px solid color-mix(in srgb,var(--ember) 55%,transparent)}
+.says li{font-size:var(--fs-body);line-height:1.55;color:var(--ink-2);overflow-wrap:anywhere}
+.says q{quotes:"“" "”"}
+.says .cite-link{white-space:normal}
 @media (max-width:520px){.reading-block.ask-reading{padding-left:14px}}
 .ask-reasons{list-style:disc;margin:6px 0 0;padding-left:18px;display:grid;gap:2px}
 .ask-reasons li{font-size:var(--fs-meta);color:var(--muted)}
