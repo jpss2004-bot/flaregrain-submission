@@ -10,7 +10,7 @@
   /* Type scale (JP decision 4, for Grish's review): labels 12, nav and small 13, meta 14, body 16-17, titles 20,
      section titles 30-44, hero 40-56. */
   --fs-label:12px; --fs-nav:13px; --fs-meta:14px; --fs-body:clamp(16px,15.2px + .2vw,17px); --fs-lead:clamp(17px,15px + .5vw,20px);
-  --fs-title:clamp(18px,16.4px + .4vw,20px); --fs-h2:clamp(30px,20px + 1.5vw,44px); --fs-h1:clamp(36px,22px + 2.4vw,56px);
+  --fs-title:clamp(18px,16.4px + .4vw,20px); --fs-h2:clamp(30px,20px + 1.5vw,44px); --fs-h1:clamp(22px,18px + .55vw,26px);
   --bar:76px;
   --ease:cubic-bezier(.16,1,.3,1);
 }
@@ -71,10 +71,10 @@ main{position:relative;z-index:1}
 .hero{height:150vh;position:relative}
 .hero-pin{position:sticky;top:0;height:100vh;height:100svh}
 .hero-copy{position:absolute;left:var(--edge);bottom:max(12vh,64px);width:clamp(320px,36vw,700px)}
-.hero-copy h1{font-size:var(--fs-h1);font-weight:300;letter-spacing:-.025em;line-height:1.04;text-wrap:balance}
+.hero-copy h1{font-size:var(--fs-h1);font-weight:500;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;text-wrap:balance}
 .hero-copy h1 em{font-style:normal;color:var(--muted)}
-.hero-copy p{margin-top:18px;color:var(--ink-2);font-size:var(--fs-lead);line-height:1.45;max-width:30ch}
-.hero-copy .facts{margin-top:18px;color:var(--muted);max-width:none;font-size:var(--fs-nav);line-height:1.6;text-wrap:balance}
+.hero-copy p{margin-top:16px;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:30ch}
+.hero-copy .facts{margin-top:18px;color:var(--muted);max-width:none;font-size:11px;line-height:1.6;text-wrap:balance}
 .states{position:absolute;right:var(--edge);top:50%;transform:translateY(-50%);width:clamp(240px,24vw,360px);display:grid}
 .state{grid-area:1 / 1;display:grid;align-content:center;gap:12px}
 .state[aria-hidden=true]{pointer-events:none}
@@ -93,7 +93,7 @@ main{position:relative;z-index:1}
 /* ---------- Sections ---------- */
 .section{padding:clamp(72px,10vh,112px) var(--edge);display:flex;flex-direction:column;justify-content:center;position:relative}
 .sec-head{display:grid;grid-template-columns:1fr minmax(0,440px);gap:24px 48px;align-items:end;margin-bottom:36px}
-.sec-head h2{font-size:var(--fs-h2);font-weight:300;letter-spacing:-.022em;line-height:1.08}
+.sec-head h2{font-size:var(--fs-h2);font-weight:500;letter-spacing:.07em;text-transform:uppercase;line-height:1.08}
 .sec-head h2 .mono{display:block;color:var(--muted);margin-bottom:14px;letter-spacing:.04em;line-height:1.3}
 .sec-head p{font-size:var(--fs-body);color:var(--ink-2)}
 
@@ -105,7 +105,7 @@ main{position:relative;z-index:1}
 .card:hover{transform:translateY(-2px);box-shadow:inset 1px 1px 0 rgba(255,255,255,.08),inset -1px -1px 0 rgba(0,0,0,.04),26px 32px 56px -30px rgba(0,0,0,0.67),-14px -14px 36px -24px rgba(255,255,255,.04)}
 .card .icon{height:180px;display:grid;place-items:center}
 .card .icon svg{width:min(150px,70%);height:auto;overflow:visible}
-.card h3{font-size:var(--fs-title);font-weight:500;letter-spacing:-.005em;line-height:1.25;color:var(--ink)}
+.card h3{font-size:var(--fs-title);font-weight:500;letter-spacing:.07em;text-transform:uppercase;line-height:1.25;color:var(--ink)}
 .card .num{display:flex;align-items:baseline;gap:8px;margin:10px 0 8px;font-size:48px;font-weight:300;letter-spacing:-.03em;line-height:1}
 .card .num small{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .card p{margin-top:8px;font-size:var(--fs-body);color:var(--ink-2);line-height:1.5}
@@ -120,7 +120,11 @@ main{position:relative;z-index:1}
 
 /* Ask */
 .ask{align-items:center;text-align:center}
-.ask .sec-head{grid-template-columns:1fr;justify-items:center;margin-bottom:28px}
+.ask .sec-head{grid-template-columns:1fr;justify-items:center;margin-bottom:32px}
+/* Home: Ask stands alone on a full black screen, with its small uppercase heading (Nora's design). */
+body:not(.page-answer) .ask{min-height:100vh;min-height:100svh}
+.ask .sec-head h2{font-size:15px;line-height:1.3}
+.ask .sec-head h2 .mono{margin-bottom:10px}
 .pill{display:flex;align-items:center;width:min(720px,100%);height:64px;padding:6px 6px 6px 24px;border-radius:999px;background:rgba(255,255,255,.05);
   box-shadow:inset 0 0 0 1px var(--line),0 18px 40px -28px rgba(0,0,0,0.72);transition:box-shadow .25s,background .25s}
 .pill:focus-within{background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1.5px var(--ember),0 18px 40px -28px rgba(0,0,0,0.72)}
@@ -259,7 +263,7 @@ dialog.drawer[open]{animation:drawIn .5s var(--ease)}
 }
 @media (max-width:760px){
   .nav{gap:0}.nav a{padding:2px 0}
-  :root{--fs-h1:34px}
+  :root{--fs-h1:20px}
   .hero-pin{display:flex;flex-direction:column;justify-content:flex-end;gap:18px;padding:0 var(--edge) 56px}
   .hero-copy,.states{position:static;width:auto;transform:none}
   .states{order:-1}
@@ -279,7 +283,7 @@ dialog.drawer[open]{animation:drawIn .5s var(--ease)}
 .mk.unrated{border:1.5px solid var(--t4);border-radius:2px}
 .cmp{max-width:1180px;margin:0 auto;padding:calc(var(--bar) + 48px) var(--edge) 96px}
 .cmp-head{display:grid;grid-template-columns:1fr minmax(0,460px);gap:24px 48px;align-items:end}
-.cmp-head h1{font-size:var(--fs-h2);font-weight:300;letter-spacing:-.022em;line-height:1.08}
+.cmp-head h1{font-size:var(--fs-h2);font-weight:500;letter-spacing:.07em;text-transform:uppercase;line-height:1.08}
 .cmp-head h1 .mono{display:block;color:var(--muted);margin-bottom:14px;letter-spacing:.04em;line-height:1.3}
 .cmp-head p{font-size:var(--fs-body);color:var(--ink-2)}
 .pickers{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-top:40px}
@@ -364,7 +368,7 @@ dialog.drawer[open]{animation:drawIn .5s var(--ease)}
 }
 
 /* Compare: decisions 4, 5, 7, 8, 11 (#12) */
-.starter-title{font-size:var(--fs-title)!important;font-weight:400!important;letter-spacing:-.005em!important;margin:0 0 18px!important}
+.starter-title{font-size:var(--fs-title)!important;font-weight:500!important;letter-spacing:.07em!important;text-transform:uppercase;margin:0 0 18px!important}
 .starters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .starter{display:grid;gap:8px;align-content:start;text-align:left;min-height:150px;padding:20px;border:0;border-radius:16px;cursor:pointer;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px var(--line);transition:background .2s,transform .2s var(--ease)}
 .starter:hover{background:rgba(255,255,255,.07);transform:translateY(-2px)}
@@ -447,7 +451,7 @@ mark{background:rgba(232,135,58,.25);color:var(--ink);border-radius:3px;padding:
 .sub{max-width:1180px;margin:0 auto;padding:calc(var(--bar) + 48px) var(--edge) 96px}
 .sub:focus{outline:none}
 .sub-head{display:grid;grid-template-columns:1fr minmax(0,500px);gap:24px 48px;align-items:end;margin-bottom:32px}
-.sub-head h1{font-size:var(--fs-h2);font-weight:300;letter-spacing:-.022em;line-height:1.08}
+.sub-head h1{font-size:var(--fs-h2);font-weight:500;letter-spacing:.07em;text-transform:uppercase;line-height:1.08}
 .sub-head h1 .mono{display:block;color:var(--muted);margin-bottom:14px;letter-spacing:.04em;line-height:1.3}
 .sub-head p{font-size:var(--fs-body);color:var(--ink-2)}
 .or-browse{margin-top:14px;font-size:var(--fs-body);color:var(--ink-2)}
