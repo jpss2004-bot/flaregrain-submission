@@ -25,7 +25,10 @@ const files = new Set([
 const types = {'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css', 'svg': 'image/svg+xml', 'png': 'image/png'};
 const notIncluded = 'This view needs the full NASA PSI dataset, which the team shows in the full-data demo.';
 const cutoffQuestion = 'How long did the flame take to go out after airflow was cut?';
-const scopeLimit = 'The cited passages give no elapsed time from airflow shutoff to extinction in seconds.';
+const scopeLimit = 'NASA’s Table A.1 row for B1 and the Saffire results page give no elapsed time from airflow shutoff to extinction. ' +
+  'The BASS-II report (PDF p. 21) describes a test where the flow was cut off abruptly and the flame went out within 2 s; it does not name the test.';
+// The words of that limitation that link to the report page they describe.
+const scopeLink = {text: 'BASS-II report (PDF p. 21)', url: 'https://ntrs.nasa.gov/api/citations/20210011385/downloads/TM-20210011385.pdf#page=21'};
 const saffireDuration = ' In Saffire, 420 seconds is the time up to shutoff.';
 
 function answer(query) {
@@ -50,6 +53,7 @@ function answer(query) {
     findings,
     limitation: findings.length ? scopeLimit + (pair.some(record => record.id === 'S1') ? saffireDuration : '') : 'Ask didn’t find a checked NASA record that answers this directly. Try a question about how flames spread, burn or go out.',
     supportingSources: findings.map(finding => finding.source),
+    ...(findings.length ? {limitLink: scopeLink} : {}),
     ranks: (related ? pair : []).map(record => ({
       id: record.id, name: record.name, relevance: 'Checked record', source: record.source, comparable: true,
     })),

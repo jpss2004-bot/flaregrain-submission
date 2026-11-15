@@ -2415,7 +2415,7 @@
       "summary": {
         "shared": "Both report flame extinction after full airflow cutoff.",
         "differences": "B1 stopped airflow halfway through spread. Saffire I-1 stopped it at the scheduled end. The specimens are PMMA and SIBAL. The airflow directions are opposed and concurrent.",
-        "gap": "The cited passages support the sequence of events. Neither gives a numerical delay from cutoff to extinction."
+        "gap": "The cited passages support the sequence of events. The B1 table row and the Saffire page give no numerical delay from cutoff to extinction. The BASS-II report (PDF p. 21) reports extinction within 2 s of an abrupt cutoff, in a test it does not name."
       },
       "rows": [
         [
@@ -2612,7 +2612,7 @@
         }
       ],
       "limitations": [
-        "The cited passages support the sequence of events. Neither gives a numerical delay from cutoff to extinction."
+        "The cited passages support the sequence of events. The B1 table row and the Saffire page give no numerical delay from cutoff to extinction. The BASS-II report (PDF p. 21) reports extinction within 2 s of an abrupt cutoff, in a test it does not name."
       ],
       "issues": {
         "disputed": 2,
@@ -14995,7 +14995,7 @@
       "summary": {
         "shared": "Both report flame extinction after full airflow cutoff.",
         "differences": "B1 stopped airflow halfway through spread. Saffire I-1 stopped it at the scheduled end. The specimens are SIBAL and PMMA. The airflow directions are concurrent and opposed.",
-        "gap": "The cited passages support the sequence of events. Neither gives a numerical delay from cutoff to extinction."
+        "gap": "The cited passages support the sequence of events. The B1 table row and the Saffire page give no numerical delay from cutoff to extinction. The BASS-II report (PDF p. 21) reports extinction within 2 s of an abrupt cutoff, in a test it does not name."
       },
       "rows": [
         [
@@ -15192,7 +15192,7 @@
         }
       ],
       "limitations": [
-        "The cited passages support the sequence of events. Neither gives a numerical delay from cutoff to extinction."
+        "The cited passages support the sequence of events. The B1 table row and the Saffire page give no numerical delay from cutoff to extinction. The BASS-II report (PDF p. 21) reports extinction within 2 s of an abrupt cutoff, in a test it does not name."
       ],
       "issues": {
         "disputed": 2,
