@@ -376,12 +376,27 @@ dialog.drawer[open]{animation:drawIn .5s var(--ease)}
 .how > .sources[open] > summary{margin-bottom:14px}
 /* The loader: while the model writes, the page's background sphere comes alive beside the answer and the answer column
    steps aside, then both ease back (app.js, pose). Only transform and opacity move. */
-.page-answer .answer{width:min(720px,100%)}
+.page-answer .answer{width:min(720px,100%);min-height:76vh} /* room for the answer is held while it loads, so the footer does not jump */
 .answer{transition:transform 1.2s cubic-bezier(.65,0,.35,1)}
 html body.page-answer .glow{left:0;top:0;right:auto;bottom:auto;width:300px;height:300px;opacity:0;will-change:transform,opacity;filter:blur(16px);
   background:radial-gradient(closest-side,color-mix(in srgb,var(--ember) 38%,transparent),color-mix(in srgb,var(--t2) 16%,transparent) 55%,transparent)}
-.reading-block.ask-reading{transition:min-height .9s cubic-bezier(.65,0,.35,1)}
 @media (min-width:1100px){.ask-writing .answer{transform:translateX(-90px)}}
+/* Loading stage: only the label, the headline, one live status line and the sphere. The steps, the excerpts and the
+   record chips arrive with the answer. */
+.ask-reading[data-state=writing] .ask-making{display:none}
+.answer:has(.ask-reading[data-state=writing]) > .says,.answer:has(.ask-reading[data-state=writing]) > .how{display:none}
+.ask-stage{display:flex;align-items:baseline;gap:12px;margin-top:18px;font-size:var(--fs-lead);line-height:1.5;color:var(--ink-2)}
+.ask-stage .ts{position:relative;display:block;min-width:0}
+.ask-stage .t{display:block}
+.ask-stage .t.in{animation:stageIn .25s var(--ease) backwards}
+.ask-stage .t.out{position:absolute;left:0;top:0;white-space:nowrap;animation:stageOut .25s var(--ease) forwards}
+@keyframes stageIn{from{opacity:0;transform:translateY(5px)}}
+@keyframes stageOut{to{opacity:0;transform:translateY(-5px)}}
+.ask-stage .tick{display:inline-block;min-width:4ch;font-family:var(--mono);font-size:.85em;font-variant-numeric:tabular-nums;color:var(--muted)}
+.live-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--ember);transform:translateY(-2px);animation:livePulse 1.4s ease-in-out infinite}
+@keyframes livePulse{0%,100%{opacity:.35;transform:translateY(-2px) scale(.8)}50%{opacity:1;transform:translateY(-2px) scale(1.15)}}
+.ask-stage.stopped{color:var(--muted)}
+.ask-stage.stopped .live-dot{animation:none;opacity:.5;background:var(--dispute)}
 /* The answer arrives line by line with a soft fade and rise. */
 .rise{animation:riseIn .6s var(--ease) backwards;animation-delay:calc(var(--i,0)*80ms)}
 @keyframes riseIn{from{opacity:0;transform:translateY(10px)}}
