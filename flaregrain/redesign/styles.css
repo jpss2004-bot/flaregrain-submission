@@ -582,3 +582,30 @@ mark{background:rgba(232,135,58,.25);color:var(--ink);border-radius:3px;padding:
 .hab-chart figcaption.mono{font-family:var(--sans);font-size:var(--fs-meta);letter-spacing:0;text-transform:none;line-height:1.45}
 .hab-big{font-size:var(--fs-lead)}
 .ev-col .arch-body h2{font-size:var(--fs-title);font-weight:400;letter-spacing:-.01em;margin:0}
+
+/* ---------- Site footer: Developers and System design, for the people who look for them ---------- */
+.site-foot{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 28px;padding:28px var(--edge);border-top:1px solid var(--line)}
+.site-foot > .mono{color:var(--muted)}
+.foot-links{display:flex;flex-wrap:wrap;gap:8px 28px}
+.foot-links a{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;padding:6px 0;transition:color .2s}
+.foot-links a:hover,.foot-links a:focus-visible,.foot-links a[aria-current]{color:var(--ink)}
+.foot-links svg{width:9px;height:9px}
+
+/* ---------- Developers ---------- */
+.devs{list-style:none;margin:24px 0 0;padding:0;border-bottom:1px solid var(--line)}
+.dev{position:relative;display:grid;grid-template-columns:56px 1fr auto;align-items:center;gap:24px;padding:clamp(22px,3.2vh,34px) 0;border-top:1px solid var(--line);color:var(--ink);text-decoration:none;
+  transition:opacity .35s var(--ease)}
+.dev-n{color:var(--muted)}
+.dev-name{font-size:clamp(30px,20px + 2.4vw,60px);font-weight:500;letter-spacing:.05em;text-transform:uppercase;line-height:1.05;transition:transform .45s var(--ease),color .3s}
+.dev-go{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);opacity:0;transform:translateX(-12px);transition:opacity .3s,transform .45s var(--ease),color .3s}
+.dev-go svg{width:10px;height:10px;transition:transform .45s var(--ease)}
+.dev::after{content:"";position:absolute;z-index:1;left:0;right:0;bottom:-1px;height:2px;background:var(--ember);transform:scaleX(0);transform-origin:left;transition:transform .55s var(--ease)}
+.devs:hover .dev:not(:hover),.devs:focus-within .dev:not(:focus-visible):not(:hover){opacity:.32}
+.dev:hover .dev-name,.dev:focus-visible .dev-name{transform:translateX(16px)}
+.dev:hover .dev-go,.dev:focus-visible .dev-go{opacity:1;transform:none;color:var(--ink)}
+.dev:hover .dev-go svg,.dev:focus-visible .dev-go svg{transform:translate(2px,-2px)}
+.dev:hover::after,.dev:focus-visible::after{transform:scaleX(1)}
+.dev:focus-visible{outline:none}
+@media (hover:none){.dev-go{opacity:1;transform:none}}
+@media (max-width:760px){.dev{grid-template-columns:36px 1fr;gap:6px 14px}.dev-go{grid-column:2;opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.dev-name,.dev-go,.dev-go svg,.dev::after{transition:none}.dev:hover .dev-name,.dev:focus-visible .dev-name{transform:none}}
