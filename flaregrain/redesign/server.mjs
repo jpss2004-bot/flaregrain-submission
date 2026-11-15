@@ -111,7 +111,7 @@ function exportRows(pair, format) {
 // asked for and carry the facts fingerprint of the published records below. Anything else (429, 503, another pair or
 // fingerprint, a timeout or a network error) returns what the page already shows for the pair, with a short status.
 // While the variable is unset, every other response is unchanged.
-export const live = {checkMs: 4000, waitMs: 40000, deadlineMs: 40000};
+export const live = {checkMs: 4000, retryMs: 1500, waitMs: 40000, deadlineMs: 40000};
 const livePairs = new Set([['B1', 'S1'], ['B1', 'B10'], ['FLEX-002', 'S31']].flatMap(([a, b]) => [a + ',' + b, b + ',' + a]));
 const unavailable = 'Live model unavailable. The saved comparison stays.';
 const limited = 'Live answers are limited right now. The saved comparison stays.';
@@ -307,12 +307,23 @@ async function explain(req, res) {
   const base = liveBase();
   if (!base) return saved(503, unavailable, 'off');
   if (!livePairs.has(key)) return saved(503, unavailable, 'pair');
-  let health = null;
-  try {
-    const reply = await fetch(base + '/health', {headers: {Accept: 'application/json'}, signal: AbortSignal.timeout(live.checkMs)});
-    if (reply.ok) health = await reply.json();
-  } catch {}
-  if (!health || health.ok !== true) return saved(503, unavailable, 'unreachable');
+  // A brief glitch between Vercel and the Mini (a refused or failed connection, an error reply) should cost one slow
+  // answer, not a fallback: if the health check fails fast, wait briefly and check once more, within the overall deadline.
+  // A check that hangs for the full 4 s is not retried, so an unreachable Mini still falls back after 4 s.
+  const checkHealth = async () => {
+    try {
+      const reply = await fetch(base + '/health', {headers: {Accept: 'application/json'}, signal: AbortSignal.timeout(live.checkMs)});
+      const body = reply.ok ? await reply.json() : null;
+      return body && body.ok === true ? body : null;
+    } catch { return null; }
+  };
+  const firstCheck = Date.now();
+  let health = await checkHealth();
+  if (!health && Date.now() - firstCheck < live.checkMs - 500 && Date.now() - started + live.retryMs + live.checkMs < live.deadlineMs) {
+    await new Promise(resolve => setTimeout(resolve, live.retryMs));
+    health = await checkHealth();
+  }
+  if (!health) return saved(503, unavailable, 'unreachable');
   if (Number.isFinite(health.usedThisHour) && Number.isFinite(health.capPerHour) && health.usedThisHour >= health.capPerHour) {
     return saved(429, limited, 'cap');
   }

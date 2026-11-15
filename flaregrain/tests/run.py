@@ -211,5 +211,16 @@ if node is not None:
     except subprocess.TimeoutExpired:
         expect("model Ask checks complete", False)
 
+# Live Explain: one more health check after a short wait before falling back (tests/live_explain_retry.mjs).
+if node is not None:
+    try:
+        retry = subprocess.run([node, str(ROOT / "tests" / "live_explain_retry.mjs")], capture_output=True, text=True, timeout=120)
+        lines = [line for line in retry.stdout.splitlines() if line.startswith(("passed ", "FAILED "))]
+        for line in lines:
+            expect(line.split(" ", 1)[1], line.startswith("passed "))
+        expect("live Explain retry checks complete", retry.returncode == 0 and bool(lines))
+    except subprocess.TimeoutExpired:
+        expect("live Explain retry checks complete", False)
+
 print(f"{len(failures)} failed" if failures else "all build checks passed")
 sys.exit(1 if failures else 0)
