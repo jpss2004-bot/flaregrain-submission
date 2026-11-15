@@ -2,6 +2,7 @@
 (function () {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isAnswerPage = document.body.classList.contains('page-answer');
+  const H = isAnswerPage ? 'h1' : 'h2'; // the answer is the answer page's main heading; the home page already has its hero h1
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
@@ -79,7 +80,7 @@
 
     slot.innerHTML = `
       <p class="q mono line-in" style="--d:0">${esc(a.query)}</p>
-      <h2 class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : a.reading?.live ? 'From the closest NASA sources' : HEAD[a.status]}</h2>
+      <${H} class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : a.reading?.live ? 'From the closest NASA sources' : HEAD[a.status]}</${H}>
       ${lead ? `<p class="cite-row line-in" style="--d:1">${cite(lead)}</p>` : ''}
       ${rest.map((f, i) => `<p class="plain line-in" style="--d:${2 + i}">${esc(f.text)} ${cite(f)}</p>`).join('')}
       ${!lead && a.limitation ? `<p class="plain line-in" style="--d:2">${a.status === 'table' ? mk('psi') + ' ' : ''}${esc(a.limitation)}</p>` : ''}
@@ -130,7 +131,7 @@
       if (ticket !== latest || !box.isConnected) return; // another question was asked meanwhile
       if (!res.ok || body.status !== 'ok') { status.textContent = body.message || 'Live model unavailable. The closest evidence is below.'; return; }
       const at = body.cached && body.generatedAt ? new Date(body.generatedAt).toLocaleTimeString('en-CA', {timeZone: 'America/Halifax', hour: '2-digit', minute: '2-digit', hour12: false}) : '';
-      status.insertAdjacentHTML('beforebegin', `<ol>${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
+      status.insertAdjacentHTML('beforebegin', `<ol>${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" style="white-space:normal" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
       status.textContent = `${body.sentences.length} ${body.sentences.length === 1 ? 'sentence' : 'sentences'} passed the checker, ${body.removed} removed (${body.seconds}s)` +
         (at ? `. Written by the live model at ${at} AST and reused for this question.` : '.');
     } catch {
@@ -144,7 +145,7 @@
     drawThread();
     if (hint) hint.textContent = '';
     if (!served) {
-      return message(`<div class="cmp-offline"><h2 id="answer-h" tabindex="-1">Start the prototype server to ask</h2>
+      return message(`<div class="cmp-offline"><${H} id="answer-h" tabindex="-1">Start the prototype server to ask</${H}>
         <p>Answers come from the dashboard’s own question handling, so they need the small local server:</p>
         <pre>cd server && node server.mjs</pre><p>Then open <a href="http://127.0.0.1:8790/">http://127.0.0.1:8790/</a>.</p></div>`);
     }
@@ -161,7 +162,7 @@
       if (body.reading?.live) reading(query, ticket);
     } catch (e) {
       if (ticket !== latest) return;
-      message(`<p class="q mono">${esc(query)}</p><h2 id="answer-h" tabindex="-1">The answer couldn’t load</h2>
+      message(`<p class="q mono">${esc(query)}</p><${H} id="answer-h" tabindex="-1">The answer couldn’t load</${H}>
         <p class="plain">${esc(e.message === 'Failed to fetch' ? 'The prototype server isn’t answering.' : e.message)}</p>
         <button class="btn btn-line" type="button" id="retry">Retry</button>`);
       document.getElementById('retry').addEventListener('click', () => ask(query, {scroll: false}));
