@@ -87,6 +87,10 @@
     </div>`;
   }
 
+  // A limitation's text with the words the server names as a link to the report page they describe.
+  const linked = (text, link) => link && text.includes(link.text)
+    ? esc(text).replace(esc(link.text), `<a href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.text)}</a>`) : esc(text);
+
   function render(a) {
     const N = a.supportingSources.length;
     const passagesWithExcerpt = a.findings.filter((f, i, all) => f.excerpt && all.findIndex(g => g.source.url === f.source.url) === i);
@@ -134,7 +138,7 @@
         ${N ? `<button class="verified" type="button" id="verified">${ICON.check}Supported by ${plural(N, 'cited NASA source', 'cited NASA sources')}</button>`
             : `<p class="no-source mono">${mk('missing')}No cited NASA source answers this directly</p>`}
         ${lead ? `<p class="team-mark mono">${mk('checked')}Checked by the team</p>` : ''}
-        ${lead && a.limitation ? `<p class="limit"><span class="mono">Limitation</span>${esc(a.limitation)}</p>` : ''}
+        ${lead && a.limitation ? `<p class="limit"><span class="mono">Limitation</span><span>${linked(a.limitation, a.limitLink)}</span></p>` : ''}
       </div>
       ${a.compare ? `<div class="next line-in" style="--d:4"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(a.compare[0])},${encodeURIComponent(a.compare[1])}&q=${encodeURIComponent(a.query)}">Compare ${esc(names[0])} and ${esc(names[1])} ${ICON.arrow}</a></div>` : ''}`;
 
@@ -212,7 +216,7 @@
     };
     // No answer to show: the neutral title and today's message take the headline's place.
     // The team's limitation for this question (the airflow question has one) sits under the answer, marked as the team's note.
-    const note = i => a.note ? `<p class="limit rise" style="--i:${i}"><span class="mono">Limitation</span><span>${esc(a.note)} <span class="mono by">Team’s note, not model text</span></span></p>` : '';
+    const note = i => a.note ? `<p class="limit rise" style="--i:${i}"><span class="mono">Limitation</span><span>${linked(a.note, a.limitLink)} <span class="mono by">Team’s note, not model text</span></span></p>` : '';
     const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden');
       document.getElementById('ask-support').innerHTML = note(0);
       if (!box.querySelector('.next')) status.insertAdjacentHTML('afterend', compareAction(0)); settle('fallback');

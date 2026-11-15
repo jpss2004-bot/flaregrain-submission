@@ -28,7 +28,7 @@ const PREPARED = 'How long did the flame take to go out after airflow was cut?';
 // Off (the default): /api/ask is today's, and nothing reaches a proxy.
 let a = await ask(Q);
 expect('off: no reading, no ranked sources, today\'s message', !a.reading && a.ranks.length === 0 && a.passages.length === 0 && /didn’t find a checked NASA record that answers this directly/.test(a.limitation), JSON.stringify(a).slice(0, 200));
-const LIMIT = 'The cited passages give no elapsed time from airflow shutoff to extinction in seconds. In Saffire, 420 seconds is the time up to shutoff.';
+const LIMIT = 'NASA’s Table A.1 row for B1 and the Saffire results page give no elapsed time from airflow shutoff to extinction. The BASS-II report (PDF p. 21) describes a test where the flow was cut off abruptly and the flame went out within 2 s; it does not name the test. In Saffire, 420 seconds is the time up to shutoff.';
 const prepared = await ask(PREPARED);
 expect('off: the airflow question keeps the team\'s prepared answer', prepared.status === 'supported' && prepared.findings.length === 2 && !prepared.reading && !prepared.note &&
   prepared.limitation === LIMIT && String(prepared.compare) === 'B1,S1' && prepared.supportingSources.length === 2);
@@ -47,6 +47,9 @@ expect('on: the airflow question has no prepared answer; it gets ranked sources 
   a.reading.facts === askFacts(rankedAir.records, rankedAir.passages, rankedAir.reports).facts.length, JSON.stringify(a).slice(0, 300));
 expect('on: retrieval ranks BASS-II B1 and Saffire I-1 as the top two records for it', rankedAir.records.slice(0, 2).sort().join() === 'B1,S1', String(rankedAir.records));
 expect('on: the team\'s limitation travels as a note, and Compare keeps the prepared pair', a.note === LIMIT && String(a.compare) === 'B1,S1');
+expect('the limitation links its BASS-II words to PDF p. 21 of the report, in both modes', [a, prepared].every(x => x.limitLink?.text === 'BASS-II report (PDF p. 21)' && LIMIT.includes(x.limitLink.text) &&
+  x.limitLink.url === rankedAir.reports.docs['20210011385'].url + '#page=21'));
+expect('the limitation does not say the cited passages give no time, and does not name B1 as the 2 s test', !/cited passages give no/.test(a.note) && /it does not name the test/.test(a.note));
 expect('on: the hand-written sentences are not sent', !JSON.stringify(a).includes('went out quickly after airflow was stopped') && !JSON.stringify(a).includes('went out immediately when airflow stopped'));
 a = await ask(Q);
 expect('on: other questions carry no team note', a.reading?.live === true && a.note === undefined && a.compare === null);
