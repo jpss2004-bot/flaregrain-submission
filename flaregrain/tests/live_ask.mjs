@@ -24,7 +24,7 @@ const PREPARED = 'How long did the flame take to go out after airflow was cut?';
 
 // Off (the default): /api/ask is today's, and nothing reaches a proxy.
 let a = await ask(Q);
-expect('off: no reading, no ranked sources, today\'s message', !a.reading && a.ranks.length === 0 && a.passages.length === 0 && /2 of the 13 checked records/.test(a.limitation), JSON.stringify(a).slice(0, 200));
+expect('off: no reading, no ranked sources, today\'s message', !a.reading && a.ranks.length === 0 && a.passages.length === 0 && /didn’t find a checked NASA record that answers this directly/.test(a.limitation), JSON.stringify(a).slice(0, 200));
 let r = await reading({q: Q});
 expect('off: the reading endpoint falls back at once', r.status === 200 && r.body.status === 'fallback' && r.body.reason === 'off');
 process.env.FLAREGRAIN_MINI_EXPLAIN_URL = proxyUrl;
