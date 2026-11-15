@@ -96,6 +96,16 @@ for (const [name, body, code, type] of [['an extra key', {q: Q, records: ['B1']}
 }
 expect('refused requests never reach the proxy', seen.length === before);
 
+// Passage ranking (November 15): no off-topic or front-matter pages for these questions; the pitch question's sources stay.
+const pages = async q => { const k = await rankSources(q); return {k, pages: k.passages.map(i => k.reports.docs[k.reports.passages[i][0]].name + ' p. ' + k.reports.passages[i][1])}; };
+let p = await pages(Q);
+expect('ranking: the oxygen question skips the organisms page', p.pages.length > 0 && !p.pages.includes('Researcher\'s Guide: Combustion Science p. 5'), p.pages.join(', '));
+p = await pages('What fuel did BASS-II burn?');
+expect('ranking: no contents page for the BASS-II fuel question', p.pages.length > 0 && !p.pages.includes('BASS-II p. 7'), p.pages.join(', '));
+p = await pages('Does air flow speed change how fast a flame spreads?');
+expect('ranking: the pitch question keeps its sources', String(p.k.records) === 'S31,S26,B1' &&
+  p.pages.join(', ') === 'SAFFIRE-I p. 20, BASS-II p. 132, Researcher\'s Guide: Combustion Science p. 20', String(p.k.records) + ' / ' + p.pages.join(', '));
+
 server.close(); proxy.close();
 console.log(failed ? failed + ' model Ask check(s) failed' : 'all model Ask checks passed');
 process.exit(failed ? 1 : 0);
