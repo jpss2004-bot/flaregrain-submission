@@ -1,7 +1,7 @@
 // Model-written Ask checks for redesign/server.mjs, against a stand-in model proxy on a free local port. run.py runs this
 // and reads its "passed"/"FAILED" lines. Nothing leaves this computer.
 import http from 'node:http';
-import {server, rankSources, askFacts} from '../redesign/server.mjs';
+import {server, rankSources, askFacts, liveAsk} from '../redesign/server.mjs';
 
 delete process.env.FLAREGRAIN_MINI_EXPLAIN_URL; delete process.env.FLAREGRAIN_LIVE_ASK;
 let failed = 0;
@@ -10,9 +10,11 @@ const listen = s => new Promise(resolve => s.listen(0, '127.0.0.1', () => resolv
 
 const seen = [];
 let reply = null; // (body) => [status, json]
+let delayMs = 0;
 const proxy = http.createServer((req, res) => {
   let body = ''; req.on('data', c => { body += c; });
-  req.on('end', () => { seen.push({path: req.url, body}); const [status, json] = reply(JSON.parse(body)); res.writeHead(status, {'Content-Type': 'application/json'}); res.end(JSON.stringify(json)); });
+  req.on('end', () => { seen.push({path: req.url, body}); const [status, json] = reply(JSON.parse(body));
+    setTimeout(() => { if (res.destroyed) return; res.writeHead(status, {'Content-Type': 'application/json'}); res.end(JSON.stringify(json)); }, delayMs); });
 });
 const proxyUrl = 'http://127.0.0.1:' + await listen(proxy);
 const site = 'http://127.0.0.1:' + await listen(server);
@@ -54,7 +56,23 @@ expect('the proxy gets only the question and the ranked source IDs', Object.keys
   String(sent.records) === String(ranked.records) && String(sent.passages) === String(ranked.passages));
 expect('a matching answer comes back with each sentence\'s NASA links and the removed count, no removed text',
   r.body.status === 'ok' && r.body.sentences.length === 2 && r.body.sentences.every(s => s.sources.length && s.sources.every(x => /^https:\/\//.test(x.url))) &&
-  r.body.removed === 1 && !JSON.stringify(r.body).includes('987') && r.body.factsHash === digest, JSON.stringify(r.body).slice(0, 300));
+  r.body.removed === 1 && !JSON.stringify(r.body).includes('invented') && r.body.factsHash === digest, JSON.stringify(r.body).slice(0, 300));
+expect('steps: the instant fact count matches the facts the proxy is given', a.reading.facts === facts.length, a.reading.facts + ' vs ' + facts.length);
+expect('steps: counts, fingerprint and the checker\'s reasons come back, never a removed sentence\'s text',
+  r.body.counts?.records === ranked.records.length && r.body.counts?.passages === ranked.passages.length && r.body.counts?.facts === facts.length &&
+  JSON.stringify(r.body.reasons) === JSON.stringify(['987 vol% is not in the fields']) && !JSON.stringify(r.body).includes('invented'), JSON.stringify(r.body).slice(0, 300));
+reply = body => [200, {...good(body)[1], removed: Array.from({length: 6}, (_, i) => ({text: 'secret removed text ' + i, cites: ['F1'], problems: ['x'.repeat(200) + i, 'second']}))}];
+r = await reading({q: Q});
+expect('steps: at most 4 reasons, each cut to 120 characters, first problem only', r.body.reasons.length === 4 && r.body.reasons.every(x => x.length === 120) &&
+  r.body.removed === 6 && !JSON.stringify(r.body).includes('secret'), JSON.stringify(r.body.reasons).slice(0, 120));
+reply = body => [200, {...good(body)[1], passed: [], removed: [{text: 'secret', cites: ['F1'], problems: ['Gives a number without naming the record']}]}];
+r = await reading({q: Q});
+expect('steps: nothing kept still reports how many were removed and why', r.body.status === 'fallback' && r.body.reason === 'none' && r.body.removed === 1 &&
+  r.body.reasons[0] === 'Gives a number without naming the record' && r.body.seconds === 9.1 && !JSON.stringify(r.body).includes('secret'), JSON.stringify(r.body));
+reply = good; delayMs = 2500; const deadline = liveAsk.deadlineMs; liveAsk.deadlineMs = 1500;
+r = await reading({q: Q});
+expect('steps: a slow model falls back with reason "timeout"', r.body.status === 'fallback' && r.body.reason === 'timeout', JSON.stringify(r.body));
+delayMs = 0; liveAsk.deadlineMs = deadline;
 reply = body => [200, {...good(body)[1], cached: true, generatedAt: '2026-11-15T15:02:00.000Z'}];
 r = await reading({q: Q});
 expect('a cached answer keeps its mark and time', r.body.status === 'ok' && r.body.cached === true && r.body.generatedAt === '2026-11-15T15:02:00.000Z');

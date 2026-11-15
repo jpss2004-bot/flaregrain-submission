@@ -231,7 +231,7 @@ async function askExtras(query) {
     ranks: ranked.records.map(id => { const r = checked.get(id); return {id, name: r.name, relevance: 'Checked record', reason: 'Ranked by its NASA fields for this question.', source: r.source, comparable: true}; }),
     passages: ranked.passages.map(i => { const [docId, page, text] = ranked.reports.passages[i]; const doc = ranked.reports.docs[docId];
       return {report: doc.name, page, url: doc.url + '#page=' + page, snippet: snippet(text, ranked.words)}; }),
-    compare: null, reading: {live: true},
+    compare: null, reading: {live: true, facts: askFacts(ranked.records, ranked.passages, ranked.reports).facts.length},
   };
 }
 async function askReading(req, res) {
@@ -243,7 +243,10 @@ async function askReading(req, res) {
   let body; try { body = JSON.parse(text); } catch { return send(res, 400, {error: 'Send {"q": "…"}.'}, undefined, noStore); }
   const query = body && typeof body.q === 'string' && Object.keys(body).join() === 'q' ? body.q.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
   if (!query) return send(res, 400, {error: 'Send {"q": "…"}.'}, undefined, noStore);
-  const fallback = (reason, status) => send(res, 200, {status: 'fallback', reason, message: status}, undefined, noStore);
+  const fallback = (reason, status, extra = {}) => send(res, 200, {status: 'fallback', reason, message: status, ...extra}, undefined, noStore);
+  // The checker's reason for each removed sentence, for the page's steps: the first problem only, at most 4, never the text.
+  const reasons = removed => (Array.isArray(removed) ? removed : []).slice(0, 4)
+    .map(item => Array.isArray(item?.problems) && typeof item.problems[0] === 'string' ? item.problems[0].slice(0, 120) : 'Did not match its facts');
   if (!askOn()) return fallback('off', 'The live model is off. The closest evidence is below.');
   const ranked = await rankSources(query);
   if (!ranked) return fallback('scope', offTopic);
@@ -263,12 +266,14 @@ async function askReading(req, res) {
       !Array.isArray(answer.passed) || answer.passed.length > 4 || !answer.passed.every(sentence) || (answer.removed !== undefined && !Array.isArray(answer.removed))) {
       return fallback('mismatch', 'Live model unavailable. The closest evidence is below.');
     }
-    if (!answer.passed.length) return fallback('none', 'The live model wrote nothing that passed the checker for this question. The closest evidence is below.');
+    if (!answer.passed.length) return fallback('none', 'The live model wrote nothing that passed the checker for this question. The closest evidence is below.',
+      {removed: (answer.removed || []).length, reasons: reasons(answer.removed), seconds: Number.isFinite(answer.seconds) ? answer.seconds : null});
     const cited = item => [...new Map(item.cites.map(id => facts[Number(id.slice(1)) - 1]).map(fact => [fact.url, {label: fact.label, url: fact.url}])).values()];
     return send(res, 200, {
       status: 'ok', model: typeof answer.model === 'string' ? answer.model.slice(0, 40) : 'qwen3:4b',
       seconds: Number.isFinite(answer.seconds) ? answer.seconds : +((Date.now() - started) / 1000).toFixed(1), factsHash: digest,
       sentences: answer.passed.map(item => ({text: item.text.trim(), sources: cited(item)})), removed: (answer.removed || []).length,
+      reasons: reasons(answer.removed), counts: {records: ranked.records.length, passages: ranked.passages.length, facts: facts.length},
       ...(answer.cached === true && typeof answer.generatedAt === 'string' && Number.isFinite(Date.parse(answer.generatedAt)) ? {cached: true, generatedAt: new Date(Date.parse(answer.generatedAt)).toISOString()} : {}),
     }, undefined, noStore);
   } catch (error) {
