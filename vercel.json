@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "functions": {
+    "api/flaregrain.mjs": {
+      "maxDuration": 45,
+      "includeFiles": "flaregrain/**"
+    }
+  },
+  "rewrites": [
+    {"source": "/(.*)", "destination": "/api/flaregrain?__flaregrain_path=$1"}
+  ]
+}
