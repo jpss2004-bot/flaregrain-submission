@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Flaregrain · Moon &amp; Mars air</title>
+<title>Flaregrain · Fire beyond Earth</title>
 <meta name="description" content="Seven habitat atmospheres, from ISS cabin air to a Moon base: how many NASA PSI table rows were tested near each, from which investigations, and what is untested.">
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -25,18 +25,24 @@
     <li><a href="index.html">Ask &amp; browse <svg aria-hidden="true"><use href="#out"/></svg></a></li>
     <li><a href="compare.html">Compare <svg aria-hidden="true"><use href="#out"/></svg></a></li>
     <li><a href="evidence.html">Evidence <svg aria-hidden="true"><use href="#out"/></svg></a></li>
-    <li><a href="habitat.html" aria-current="page">Moon &amp; Mars air <svg aria-hidden="true"><use href="#out"/></svg></a></li>
+    <li><a href="habitat.html" aria-current="page">Fire beyond Earth <svg aria-hidden="true"><use href="#out"/></svg></a></li>
   </ul></nav>
 </div>
 <main class="sub" id="main" tabindex="-1">
-  <header class="sub-head">
-    <h1>Moon &amp; Mars air</h1>
-    <p>Pick a habitat atmosphere. This snapshot of the full-data demo says how many NASA PSI table rows were tested near it, from which investigations, in which gravity, and what is untested. It never interpolates between tested rows.</p>
+  <header class="hab-hero">
+    <canvas class="planet" data-planet="moon" aria-hidden="true"></canvas>
+    <canvas class="planet" data-planet="mars" aria-hidden="true"></canvas>
+    <div class="hab-hero-copy">
+      <h1><span class="mono">(Moon &amp; Mars air)</span>Fire beyond Earth</h1>
+      <p>Pick a habitat atmosphere. See which NASA fire tests ran near it, and what nobody has tested yet.</p>
+    </div>
   </header>
   <div class="hab-presets" id="hab-presets" role="group" aria-label="Atmosphere presets"></div>
   <p class="cmp-status mono" id="hab-status" role="status" aria-live="polite"></p>
   <div class="hab-layout"><figure class="hab-chart" id="hab-chart"></figure><div class="hab-read" id="hab-read"></div></div>
-  <p class="arch-note" id="hab-method"></p>
+  <div class="hab-gravity" id="hab-gravity"></div>
+  <div class="hab-cols" id="hab-cols"></div>
+  <details class="hab-method"><summary class="mono">How this snapshot was made</summary><p class="arch-note" id="hab-method"></p></details>
 </main>
 
 <footer class="site-foot">

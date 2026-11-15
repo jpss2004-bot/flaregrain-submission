@@ -510,7 +510,24 @@ mark{background:rgba(232,135,58,.25);color:var(--ink);border-radius:3px;padding:
 .ev-col h2{font-size:26px;font-weight:300;letter-spacing:-.02em;margin:6px 0 14px}
 .ev-col .excerpt{margin:0 0 12px}
 .ev-col .fields div{grid-template-columns:14px 130px 1fr}
-.hab-presets{display:flex;flex-wrap:wrap;gap:8px}
+/* Opening: the Moon and Mars frame a short title, edge to edge */
+.hab-hero{position:relative;display:grid;place-items:center;height:clamp(360px,52vh,520px);margin:calc(-1 * 48px) 0 8px calc(50% - 50vw);width:100vw;overflow:hidden;text-align:center}
+.hab-hero .planet{position:absolute;top:50%;pointer-events:none}
+.hab-hero [data-planet=moon]{width:clamp(220px,30vw,440px);height:clamp(220px,30vw,440px);left:clamp(-90px,-6vw,-40px);transform:translateY(-54%)}
+.hab-hero [data-planet=mars]{width:clamp(260px,35vw,520px);height:clamp(260px,35vw,520px);right:clamp(-140px,-9vw,-60px);transform:translateY(-50%)}
+.hab-hero-copy{position:relative;max-width:640px;padding:0 var(--edge)}
+.hab-hero h1{font-size:var(--fs-h2);font-weight:500;letter-spacing:.07em;text-transform:uppercase;line-height:1.08}
+.hab-hero h1 .mono{display:block;color:var(--muted);margin-bottom:14px;letter-spacing:.04em;line-height:1.3}
+.hab-hero p{margin:16px auto 0;max-width:46ch;font-size:var(--fs-lead);line-height:1.45;color:var(--ink-2)}
+.hab-presets{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.hab-presets + .cmp-status{text-align:center}
+.hab-gravity{margin-top:56px;max-width:80ch}
+.hab-cols{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:56px;align-items:start}
+.hab-method{margin-top:56px;padding-top:18px;border-top:1px solid var(--line)}
+.hab-method summary{cursor:pointer;color:var(--ink-2);padding:6px 0}
+.hab-method summary:hover{color:var(--ink)}
+.hab-method .arch-note{margin-top:12px}
+@media (max-width:760px){.hab-hero{height:420px}.hab-hero .planet{opacity:.5}.hab-hero [data-planet=moon]{left:-90px;top:28%}.hab-hero [data-planet=mars]{right:-120px;top:74%}}
 .hab-presets button{border:0;cursor:pointer;min-height:40px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);font-size:var(--fs-meta);transition:background .2s}
 .hab-presets button:hover{background:rgba(255,255,255,.08)}
 .hab-presets button[aria-pressed=true]{background:var(--ink);color:var(--bg-hi)}
@@ -519,7 +536,7 @@ mark{background:rgba(232,135,58,.25);color:var(--ink);border-radius:3px;padding:
 .hab-controls .mono{color:var(--muted)}
 .hab-controls input[type=range]{accent-color:var(--ember);width:100%}
 .hab-controls output{font-family:var(--mono);font-size:var(--fs-meta);min-width:64px;text-align:right}
-.hab-layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:24px;margin-top:20px;align-items:start}
+.hab-layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:40px;margin-top:28px;align-items:center}
 .hab-chart{margin:0;border-radius:16px;box-shadow:inset 0 0 0 1px var(--line);padding:12px}
 .hab-chart svg{width:100%;height:auto;display:block}
 .hab-chart text{fill:var(--muted);font:11px var(--mono)}
@@ -539,8 +556,8 @@ mark{background:rgba(232,135,58,.25);color:var(--ink);border-radius:3px;padding:
 .hab-flags li{padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--line);font-size:var(--fs-body);color:var(--ink-2)}
 .hab-flags .flag-outside,.hab-flags .flag-regime{box-shadow:inset 0 0 0 1px rgba(255,122,107,.4)}
 .hab-flags .flag-boundary,.hab-flags .flag-interpolation{box-shadow:inset 0 0 0 1px rgba(232,162,58,.45)}
-.hab-fan{border:1px dashed var(--line-2);border-radius:14px;padding:16px 18px}
-.hab-fan h2{font-size:var(--fs-title);font-weight:500;margin-bottom:8px}
+.hab-fan{min-width:0}
+.hab-fan h2{font-size:15px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;line-height:1.3;margin-bottom:16px}
 .hab-fan p{font-size:var(--fs-body);color:var(--ink-2)}
 .hab-fan p .mono{color:var(--muted);margin:0 6px}
 .hab-fan ul{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:8px;font-size:var(--fs-body);color:var(--ink-2)}
@@ -571,7 +588,7 @@ mark{background:rgba(232,135,58,.25);color:var(--ink);border-radius:3px;padding:
 .trend-grid .fit{fill:none;stroke:var(--ink-2);stroke-width:2;stroke-dasharray:5 3}
 .trend-grid .band{fill:rgba(232,230,225,.08)}
 .trend-grid figcaption{color:var(--muted);margin-top:4px}
-@media (max-width:1024px){.hab-layout{grid-template-columns:1fr}.hab-controls{grid-template-columns:1fr 1fr}.in-grid{grid-template-columns:1fr}}
+@media (max-width:1024px){.hab-layout,.hab-cols{grid-template-columns:1fr}.hab-controls{grid-template-columns:1fr 1fr}.in-grid{grid-template-columns:1fr}}
 @media (max-width:900px){.sub-head{grid-template-columns:1fr}.ev-cols{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.trend-grid{grid-template-columns:1fr}}
 @media (max-width:760px){.cmp,.sub{padding-top:calc(var(--bar) + 32px)}}
 

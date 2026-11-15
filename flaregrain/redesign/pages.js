@@ -152,14 +152,63 @@
     })();
   }
 
+  /* Particle planets for the Moon & Mars air opening: dots on a sphere, lit from the upper left like the home page's flame.
+     They turn slowly, pause off screen and in background tabs, and hold still with reduced motion. */
+  function planets() {
+    document.querySelectorAll('canvas[data-planet]').forEach(canvas => {
+      const mars = canvas.dataset.planet === 'mars', g = canvas.getContext('2d');
+      let seed = mars ? 7 : 3;
+      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const unit = () => { const y = rnd() * 2 - 1, r = Math.sqrt(1 - y * y), t = rnd() * 6.283; return [r * Math.cos(t), y, r * Math.sin(t)]; };
+      const blobs = Array.from({length: mars ? 9 : 12}, () => [...unit(), .25 + rnd() * .35]);
+      const dots = Array.from({length: mars ? 9000 : 8000}, () => {
+        const [x, y, z] = unit();
+        let dark = 0;
+        for (const [bx, by, bz, br] of blobs) { const d = Math.hypot(x - bx, y - by, z - bz); if (d < br) dark = Math.max(dark, 1 - d / br); }
+        const cap = mars && Math.abs(y) > .9;
+        const base = cap ? [245, 235, 225] : mars ? [205 - dark * 70, 95 - dark * 35, 50 - dark * 20] : [150 - dark * 55, 149 - dark * 55, 147 - dark * 54];
+        return {x, y, z, base, lift: cap ? [0, 0, 0] : mars ? [70, 70, 55] : [95, 94, 93], a: .6 + rnd() * .4, s: .7 + rnd() * .9};
+      });
+      const L = [-.55, -.6, .58];
+      let size = 0, angle = rnd() * 6.283, last = 0, visible = true, frame = 0;
+      const resize = () => { size = canvas.clientWidth; canvas.width = canvas.height = Math.round(size * devicePixelRatio); g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); };
+      const paint = () => {
+        const R = size * .42, c = size / 2, cos = Math.cos(angle), sin = Math.sin(angle);
+        g.clearRect(0, 0, size, size);
+        const glow = g.createRadialGradient(c, c, R * .6, c, c, R * 1.25);
+        glow.addColorStop(0, mars ? 'rgba(210,90,40,.16)' : 'rgba(200,205,220,.10)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = glow; g.fillRect(0, 0, size, size);
+        for (const d of dots) {
+          const x = d.x * cos + d.z * sin, z = -d.x * sin + d.z * cos;
+          if (z < 0) continue;
+          const lit = Math.max(0, x * L[0] + d.y * L[1] + z * L[2]) * .85 + .08;
+          g.fillStyle = `rgba(${Math.round(d.base[0] + lit * d.lift[0])},${Math.round(d.base[1] + lit * d.lift[1])},${Math.round(d.base[2] + lit * d.lift[2])},${((.25 + lit * .75) * d.a).toFixed(2)})`;
+          g.fillRect(c + x * R, c + d.y * R, d.s, d.s);
+        }
+      };
+      const tick = now => {
+        frame = 0;
+        if (!visible || document.hidden) return;
+        angle += Math.min(now - (last || now), 50) * (mars ? 6.283 / 120000 : 6.283 / 150000);
+        last = now; paint(); frame = requestAnimationFrame(tick);
+      };
+      const start = () => { if (!reduced && !frame && visible && !document.hidden) { last = 0; frame = requestAnimationFrame(tick); } };
+      resize(); paint();
+      addEventListener('resize', () => { resize(); paint(); });
+      new IntersectionObserver(([e]) => { visible = e.isIntersecting; start(); }).observe(canvas);
+      document.addEventListener('visibilitychange', start);
+    });
+  }
+
   /* ---------- Moon & Mars air: a snapshot of the full-data demo's habitat answers, plus the nearest checked records ---------- */
   if (page === 'habitat') {
-    const status = $('hab-status'), chart = $('hab-chart'), read = $('hab-read'), presets = $('hab-presets'), method = $('hab-method');
+    const status = $('hab-status'), chart = $('hab-chart'), read = $('hab-read'), gravity = $('hab-gravity'), cols = $('hab-cols'), presets = $('hab-presets'), method = $('hab-method');
     const SHORT = {iss: 'ISS', moon: 'Moon', 'bre-265': 'BRE 26.5%', bre: 'BRE 34%', suit: 'Suit', earth: 'Earth', mars: 'Mars'};
     const range = (r, unit) => r[0] === r[1] ? `${r[0]}${unit}` : `${r[0]}–${r[1]}${unit}`;
     const names = list => list.map(i => i.name);
     const joined = list => list.length < 3 ? list.join(' and ') : list.slice(0, -1).join(', ') + ' and ' + list.at(-1);
     let snap = null;
+    planets();
 
     function draw(p) {
       // Oxygen 15–45% by total pressure 0–16 psi. The spacesuit preset (100% O₂) sits off the chart at the right edge.
@@ -213,7 +262,9 @@
         <p class="limit"><span class="mono">Preset</span>${esc(p.note)}</p>
         <p class="mono">Oxygen partial pressure ${p.partialPressurePsi} psi · ${p.earthAirShare}% of Earth air’s 3.09 psi</p>
         ${table}${extra ? `<p class="limit"><span class="mono">Also</span>${esc(extra)}</p>` : ''}
-        <p class="limit"><span class="mono">Gravity</span>${n.rows ? `All ${plural(n.rows, 'row', 'rows')} counted here ${n.rows === 1 ? 'is' : 'are'} ${esc(n.gravity.join(' and '))} tests. ` : ''}${esc(p.gravityNote)}</p>
+`;
+      gravity.innerHTML = `<p class="limit"><span class="mono">Gravity</span>${n.rows ? `All ${plural(n.rows, 'row', 'rows')} counted here ${n.rows === 1 ? 'is' : 'are'} ${esc(n.gravity.join(' and '))} tests. ` : ''}${esc(p.gravityNote)}</p>`;
+      cols.innerHTML = `
         <section class="hab-fan" aria-labelledby="hab-untested"><h2 id="hab-untested">Untested here</h2>
           <ul class="hab-flags">${p.flags.map(f => `<li class="flag-${esc(f.kind)}">${esc(f.text)}</li>`).join('')}${p.untested.map(t => `<li>${esc(t)}</li>`).join('')}</ul></section>
         <section class="hab-fan" aria-labelledby="hab-checked"><h2 id="hab-checked">Checked records in this site</h2>
@@ -233,7 +284,7 @@
       presets.innerHTML = snap.presets.map(p => `<button type="button" data-id="${esc(p.id)}" aria-pressed="false">${esc(p.label)}</button>`).join('');
       presets.addEventListener('click', e => { const btn = e.target.closest('[data-id]'); if (btn) show(snap.presets.find(p => p.id === btn.dataset.id), true); });
       const src = snap.source, ex = snap.method.excluded.map(x => `${x.psi}: ${x.reason}`).join(' ');
-      method.innerHTML = `<b>How this snapshot was made.</b> ${esc(`The full-data demo’s habitat view answers these questions live from ${src.rows.toLocaleString('en-CA')} NASA PSI table rows in ${src.investigations} investigations. This page shows its answers for seven presets, taken at commit ${src.commit} with the demo’s own rules. ${snap.method.near} ${snap.method.oxygenOnly} ${ex} ${snap.method.checked} Interpolation: ${snap.method.interpolation}`)}`;
+      method.innerHTML = `${esc(`The full-data demo’s habitat view answers these questions live from ${src.rows.toLocaleString('en-CA')} NASA PSI table rows in ${src.investigations} investigations. This page shows its answers for seven presets, taken at commit ${src.commit} with the demo’s own rules. ${snap.method.near} ${snap.method.oxygenOnly} ${ex} ${snap.method.checked} Interpolation: ${snap.method.interpolation}`)}`;
       show(snap.presets.find(p => p.id === location.hash.slice(1)) || snap.presets.find(p => p.id === 'moon'), false);
     })();
   }
