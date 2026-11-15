@@ -85,7 +85,7 @@
       ${!lead && a.limitation ? `<p class="plain line-in" style="--d:2">${a.status === 'table' ? mk('psi') + ' ' : ''}${esc(a.limitation)}</p>` : ''}
       <div class="line-in support-answer" style="--d:3">
         ${N ? `<button class="verified" type="button" id="verified">${ICON.check}Supported by ${plural(N, 'cited NASA source', 'cited NASA sources')}</button>`
-            : `<p class="no-source mono">${mk('missing')}No cited NASA source answers this directly</p>`}
+            : a.reading?.live ? '' : `<p class="no-source mono">${mk('missing')}No cited NASA source answers this directly</p>`}
         ${lead && a.limitation ? `<p class="limit"><span class="mono">Limitation</span>${esc(a.limitation)}</p>` : ''}
       </div>
       ${a.compare ? `<div class="next line-in" style="--d:4"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(a.compare[0])},${encodeURIComponent(a.compare[1])}&q=${encodeURIComponent(a.query)}">Compare ${esc(names[0])} and ${esc(names[1])} ${ICON.arrow}</a></div>` : ''}

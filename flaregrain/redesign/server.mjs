@@ -163,7 +163,7 @@ function bound(answer, ids, started) {
 export const liveAsk = {waitMs: 40000, deadlineMs: 40000, limits: {question: 200, records: 3, passages: 4}};
 const askOn = () => process.env.FLAREGRAIN_LIVE_ASK === '1' && !!liveBase();
 const offTopic = 'Flaregrain covers NASA fire experiments in space: how materials burn, how flames spread and how they go out in different air, airflow and gravity. Try “How long did the flame take to go out after airflow was cut?” or “How does oxygen change flame spread?”';
-const askNoAnswer = 'No prepared answer for this question. The closest checked records and NASA report pages are below.';
+const askNoAnswer = 'Flaregrain answers from the checked NASA records and report pages closest to your question, listed below.';
 const fireWords = /flam|fire|burn|combust|ignit|extin|oxygen|\bo2\b|o₂|air ?flow|\bflow|\bfans?\b|spread|smoke|soot|pressure|\bpsi\b|gravity|fuel|droplet|pmma|acrylic|fabric|sibal|cotton|kapton|methanol|heptane|ethanol|material|sample|saffire|bass|\bflex\b|cfi|temperat|heat|radiat|suppress|detect|habitat|moon|mars|cabin|spacecraft|candle|\bwire|velocity|thick|film|char|melt|pyroly/i;
 const stop = new Set(('the and for from with into over under than then there their they them this that these those what which who whom how why when where ' +
   'does did can could would should will about was were are has have had been being its not but you your our nasa test tests tested record records report reports').split(' '));
@@ -225,7 +225,7 @@ export function askFacts(recordIds, passageIds, reports) {
 // Extra Ask fields for /api/ask when model-written Ask is on and today's Ask has no prepared answer.
 async function askExtras(query) {
   const ranked = await rankSources(query);
-  if (!ranked) return {limitation: offTopic, ranks: [], passages: [], compare: null};
+  if (!ranked) return {status: 'unanswerable', limitation: offTopic, ranks: [], passages: [], compare: null};
   return {
     limitation: askNoAnswer,
     ranks: ranked.records.map(id => { const r = checked.get(id); return {id, name: r.name, relevance: 'Checked record', reason: 'Ranked by its NASA fields for this question.', source: r.source, comparable: true}; }),
