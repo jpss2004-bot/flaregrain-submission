@@ -140,6 +140,9 @@ body:not(.page-answer) .ask{min-height:100vh;min-height:100svh}
 
 /* Answer (Layer 1) */
 .answer{width:min(760px,100%);margin:72px auto 0;text-align:left}
+/* Home: the answer lines up with the question pill, clears the nav when scrolled to, and keeps clear space before the library */
+body:not(.page-answer) .answer{width:min(720px,100%);scroll-margin-top:calc(var(--bar) + 32px)}
+body:not(.page-answer) .ask:has(> .answer:not([hidden])){justify-content:flex-start;padding-bottom:clamp(120px,20vh,200px)} /* no re-centring jump as the answer grows */
 .answer[hidden]{display:none}
 .answer .q{color:var(--muted)}
 .answer h1,.answer h2{margin-top:14px;font-size:clamp(26px,3.2vw,40px);font-weight:300;letter-spacing:-.022em;line-height:1.14;text-wrap:balance}
