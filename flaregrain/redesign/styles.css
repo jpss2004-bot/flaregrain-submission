@@ -68,7 +68,7 @@ h1,h2,h3,p{margin:0}
 
 /* ---------- Hero (scroll morph) ---------- */
 main{position:relative;z-index:1}
-.hero{height:150vh;position:relative}
+.hero{height:240vh;position:relative}
 .hero-pin{position:sticky;top:0;height:100vh;height:100svh}
 .hero-copy{position:absolute;left:var(--edge);bottom:max(12vh,64px);width:clamp(320px,36vw,700px)}
 .hero-copy h1{font-size:var(--fs-h1);font-weight:500;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;text-wrap:balance}
