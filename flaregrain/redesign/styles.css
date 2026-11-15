@@ -570,3 +570,11 @@ mark{background:rgba(232,135,58,.25);color:var(--ink);border-radius:3px;padding:
 @media (max-width:1024px){.hab-layout{grid-template-columns:1fr}.hab-controls{grid-template-columns:1fr 1fr}.in-grid{grid-template-columns:1fr}}
 @media (max-width:900px){.sub-head{grid-template-columns:1fr}.ev-cols{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.trend-grid{grid-template-columns:1fr}}
 @media (max-width:760px){.cmp,.sub{padding-top:calc(var(--bar) + 32px)}}
+
+/* Moon & Mars air, Findings and System: type-scale and layout fixes from the live audit (#15, JP's fixes 1-5) */
+.in-card > p.mono{font-size:var(--fs-label)}
+.in-grid{align-items:start}
+@media (min-width:1025px){.hab-chart{position:sticky;top:calc(var(--bar) + 24px)}}
+.hab-chart figcaption.mono{font-family:var(--sans);font-size:var(--fs-meta);letter-spacing:0;text-transform:none;line-height:1.45}
+.hab-big{font-size:var(--fs-lead)}
+.ev-col .arch-body h2{font-size:var(--fs-title);font-weight:400;letter-spacing:-.01em;margin:0}
