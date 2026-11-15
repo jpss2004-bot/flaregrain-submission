@@ -130,7 +130,7 @@
       if (ticket !== latest || !box.isConnected) return; // another question was asked meanwhile
       if (!res.ok || body.status !== 'ok') { status.textContent = body.message || 'Live model unavailable. The closest evidence is below.'; return; }
       const at = body.cached && body.generatedAt ? new Date(body.generatedAt).toLocaleTimeString('en-CA', {timeZone: 'America/Halifax', hour: '2-digit', minute: '2-digit', hour12: false}) : '';
-      status.insertAdjacentHTML('beforebegin', `<ol>${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
+      status.insertAdjacentHTML('beforebegin', `<ol>${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" style="white-space:normal" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
       status.textContent = `${body.sentences.length} ${body.sentences.length === 1 ? 'sentence' : 'sentences'} passed the checker, ${body.removed} removed (${body.seconds}s)` +
         (at ? `. Written by the live model at ${at} AST and reused for this question.` : '.');
     } catch {
