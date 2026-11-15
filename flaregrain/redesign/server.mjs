@@ -19,7 +19,7 @@ const habitatRecords = Object.fromEntries([...checked.values()].map(record =>
 
 const files = new Set([
   'index.html', 'answer.html', 'browse.html', 'compare.html', 'evidence.html', 'habitat.html',
-  'insights.html', 'system.html', 'app.js', 'compare.js', 'drawer.js', 'pages.js', 'styles.css', 'favicon.svg', 'favicon.png',
+  'insights.html', 'system.html', 'developers.html', 'app.js', 'compare.js', 'drawer.js', 'pages.js', 'styles.css', 'favicon.svg', 'favicon.png',
 ]);
 const types = {'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css', 'svg': 'image/svg+xml', 'png': 'image/png'};
 const notIncluded = 'This view needs the full NASA PSI dataset, which the team shows in the full-data demo.';

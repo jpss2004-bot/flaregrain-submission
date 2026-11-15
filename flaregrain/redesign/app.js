@@ -332,7 +332,7 @@
     const r = hero.getBoundingClientRect();
     const p = clamp(-r.top / (r.height - innerHeight), 0, 1);
     const after = clamp((innerHeight - r.bottom) / (innerHeight * .7), 0, 1);
-    let morph = smooth(.1, .65, p); // the hero is 1.5 screens tall: the flame finishes its change with room to read (B)
+    let morph = smooth(.15, .75, p); // the hero is 2.4 screens tall: the flame changes over about 0.85 screens of scrolling, then rests on (B)
     if (reduced) morph = p < .5 ? 0 : 1;
     if (bar) bar.style.setProperty('--p', p.toFixed(3));
     document.documentElement.classList.toggle('past-hero', r.bottom < innerHeight * .92); // hero text fades before it reaches the nav

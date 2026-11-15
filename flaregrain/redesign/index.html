@@ -47,7 +47,6 @@
     <li><a href="compare.html">Compare <svg aria-hidden="true"><use href="#out"/></svg></a></li>
     <li><a href="evidence.html">Evidence <svg aria-hidden="true"><use href="#out"/></svg></a></li>
     <li><a href="habitat.html">Moon &amp; Mars air <svg aria-hidden="true"><use href="#out"/></svg></a></li>
-    <li><a href="system.html">System design <svg aria-hidden="true"><use href="#out"/></svg></a></li>
   </ul></nav>
   <span class="corner l mono" data-enter style="--ed:200ms">NASA Space Apps · Halifax 2026</span>
 </div>
@@ -73,6 +72,22 @@
       </div>
       <div class="progress" aria-hidden="true"><span class="bar"><i></i></span></div>
     </div>
+  </section>
+
+  <section class="section ask" id="ask" aria-labelledby="ask-h">
+    <div class="sec-head"><h2 id="ask-h"><span class="mono">(Ask)</span>Ask the experiments</h2></div>
+    <form class="pill" id="ask-form" role="search">
+      <label class="vh" for="ask-input">Ask a question about NASA’s fire experiments</label>
+      <input id="ask-input" type="search" autocomplete="off" placeholder="How long did the flame take to go out after airflow was cut?">
+      <button type="submit" aria-label="Ask"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+    </form>
+    <div class="sugg" aria-label="Suggested questions">
+      <button type="button" data-ask="How long did the flame take to go out after airflow was cut?">How long did the flame take to go out?</button>
+      <button type="button" data-ask="What happens to a flame when the airflow stops mid-burn?">What happens when airflow stops mid-burn?</button>
+      <button type="button" data-ask="Did NASA measure the delay after airflow was cut?">Was the delay after cutoff measured?</button>
+    </div>
+    <p class="or-browse"><span class="mono">Or</span> <a href="browse.html">browse the library</a> <span class="mono">·</span> <a href="insights.html">read the findings</a></p>
+    <div class="answer" id="answer" hidden aria-live="polite"></div>
   </section>
 
   <section class="section" id="library" aria-labelledby="lib-h">
@@ -111,23 +126,15 @@
       </a>
     </div>
   </section>
-
-  <section class="section ask" id="ask" aria-labelledby="ask-h">
-    <div class="sec-head"><h2 id="ask-h"><span class="mono">(Ask)</span>Ask the experiments</h2></div>
-    <form class="pill" id="ask-form" role="search">
-      <label class="vh" for="ask-input">Ask a question about NASA’s fire experiments</label>
-      <input id="ask-input" type="search" autocomplete="off" placeholder="How long did the flame take to go out after airflow was cut?">
-      <button type="submit" aria-label="Ask"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
-    </form>
-    <div class="sugg" aria-label="Suggested questions">
-      <button type="button" data-ask="How long did the flame take to go out after airflow was cut?">How long did the flame take to go out?</button>
-      <button type="button" data-ask="What happens to a flame when the airflow stops mid-burn?">What happens when airflow stops mid-burn?</button>
-      <button type="button" data-ask="Did NASA measure the delay after airflow was cut?">Was the delay after cutoff measured?</button>
-    </div>
-    <p class="or-browse">Or <a href="browse.html">browse the library</a> · <a href="insights.html">read the findings</a></p>
-    <div class="answer" id="answer" hidden aria-live="polite"></div>
-  </section>
 </main>
+
+<footer class="site-foot">
+  <span class="mono">(Flaregrain) · Sparkline Foundry · NASA Space Apps Halifax 2026</span>
+  <nav class="foot-links" aria-label="About this project">
+    <a class="mono" href="developers.html">Developers <svg aria-hidden="true"><use href="#out"/></svg></a>
+    <a class="mono" href="system.html">System design <svg aria-hidden="true"><use href="#out"/></svg></a>
+  </nav>
+</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="drawer.js"></script>
