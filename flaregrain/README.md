@@ -1,14 +1,28 @@
 # Flaregrain
 
-Flaregrain is an evidence dashboard for the NASA Space Apps 2026 challenge "Flame in Freefall". The first app build compares two checked microgravity fire experiments and links each observation to its NASA source.
+Flaregrain is an evidence dashboard for the NASA Space Apps 2026 challenge "Flame in Freefall", built by Sparkline Foundry at NASA Space Apps Halifax. It answers plain-language questions about NASA's microgravity fire experiments, and every NASA value links to the report page or table it came from.
 
-## Run Nora’s Ask and Compare redesign
+**Live site:** https://flaregrain-submission.vercel.app
 
-From the repository root with Node.js 22 or later, run `node flaregrain/redesign/server.mjs` and open [the local app](http://127.0.0.1:8790/). Choose the suggested airflow question to open its cited answer and full records. Use **Compare** or the link in the answer to review the prepared pair. The app needs no account.
+## What the site does
+
+- **Ask:** type a question. The server ranks the closest checked NASA records and report pages, and the page shows them with their links.
+  - On the live site, a small open model (qwen3:4b, on the team's own computer) writes up to four sentences from those sources. A sentence checker keeps only the sentences that match the facts they cite, and the page says how many it removed. Model text is labelled "AI summary".
+  - Without the model, Ask shows the closest evidence, and one prepared question shows an answer the team checked by hand.
+- **Compare:** two of the 11 comparable checked runs side by side, with what they share, how they differ, and what the sources leave open.
+- **Evidence** and **Browse:** the 13 hand-checked records and the evidence trail behind them.
+- **Fire beyond Earth:** seven habitat atmospheres, from ISS cabin air to a Moon base, with how many NASA table rows were tested near each and what is untested.
+- **Findings** and **System design:** four evidence findings, and how the data, ranking, model and checker fit together.
+
+## Run it
+
+From the repository root with Node.js 22 or later, run `node flaregrain/redesign/server.mjs` and open [the local app](http://127.0.0.1:8790/). It needs no account. Run this way, the model is off: Ask shows the closest evidence and the prepared answer, and Compare shows its saved explanations.
 
 This build carries the 13 hand-checked NASA records in `data/compare-data.json`: 11 runs, with a prepared comparison for each of the 110 ordered pairs, and SAME's two Kapton material baselines. The comparisons come from the dashboard's rule-based Compare; where two NASA sources disagree on a value, the comparison marks it disputed and keeps both. Ask answers the airflow cutoff question from the BASS-II B1 and Saffire I-1 reports. Browse and Evidence show all 13 records. Habitat, Atlas, System design and wider evidence summaries require the wider dataset and display the submission scope. NASA figures and page crops remain in the linked reports.
 
 Nora Forghani designed and implemented the landing, flame, Ask, Compare and shared drawer. The app retains the original asset URLs for [Three.js r128](https://github.com/mrdoob/three.js/blob/r128/LICENSE), [Hanken Grotesk](https://github.com/google/fonts/blob/main/ofl/hankengrotesk/OFL.txt) and [JetBrains Mono](https://github.com/google/fonts/blob/main/ofl/jetbrainsmono/OFL.txt).
+
+The team: José Pablo Samano, Nora Forghani, Osman Khurram and Grish Acharya. [NOTICE.md](NOTICE.md) covers the NASA data terms, third-party licences and how AI tools were used; [PROVENANCE.md](PROVENANCE.md) gives the dates and authors of each part; [ENGINEERING.md](ENGINEERING.md) gives what was measured.
 
 ## Browse the evidence
 

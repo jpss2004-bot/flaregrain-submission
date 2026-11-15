@@ -465,6 +465,7 @@ html body.page-answer .glow{left:0;top:0;right:auto;bottom:auto;width:300px;heig
 .support .srcs{margin-top:0}
 .limit{display:flex;gap:12px;font-size:var(--fs-body);color:var(--ink-2);max-width:72ch}
 .limit .mono{color:var(--muted);flex:none;padding-top:2px}
+.limit .by{display:block;padding-top:6px}
 .table .row > span[class^="flag-"]{display:flex;gap:8px;align-items:baseline}
 .table .row > span[class^="flag-"] .mk{flex:none;transform:translateY(1px)}
 .table .flag-dispute{color:var(--ink)}

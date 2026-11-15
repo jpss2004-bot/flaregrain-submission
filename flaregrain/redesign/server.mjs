@@ -5,7 +5,8 @@ import {pathToFileURL} from 'node:url';
 const data = JSON.parse(await readFile(new URL('../data/compare-data.json', import.meta.url), 'utf8'));
 const starter = data.starters[0];
 const orderedPair = data.pairs[starter.ids.join(',')];
-// The Ask matcher below answers from the two records of the prepared airflow pair only (Codex's lane, unchanged).
+// The Ask matcher below answers from the two records of the prepared airflow pair only (Codex's lane, unchanged). It is the
+// answer when the model is off; with the model on, /api/ask sends that question through retrieval and the model too.
 const records = new Map(orderedPair.records.map(record => [record.id, record]));
 // Everything else reads the 13 hand-checked NASA records; 11 are runs with prepared comparisons, and SAME's two Kapton
 // material baselines are records only.
@@ -385,7 +386,16 @@ async function api(res, url) {
       const query = (search.get('q') || '').trim().slice(0, 300);
       if (!query) return send(res, 400, {error: 'Type a question first.'});
       const reply = answer(query);
-      return send(res, 200, askOn() && !reply.findings.length ? {...reply, ...await askExtras(query)} : reply);
+      if (!askOn()) return send(res, 200, reply);
+      const extras = await askExtras(query);
+      if (!reply.findings.length) return send(res, 200, {...reply, ...extras});
+      // With the model on, the airflow question is answered like any other: ranked sources, then the model's checked
+      // sentences. The hand-written sentences stay for when the model is off. The team's limitation travels along as a
+      // note, and Compare keeps the prepared pair's order when those two records are the top two ranked.
+      if (!extras.reading?.live) return send(res, 200, reply);
+      const top = extras.ranks.slice(0, 2).map(rank => rank.id);
+      return send(res, 200, {...reply, status: 'no-match', findings: [], supportingSources: [], ...extras, note: reply.limitation,
+        compare: reply.compare && reply.compare.every(id => top.includes(id)) ? reply.compare : null});
     }
     case '/api/record': {
       const record = checked.get(search.get('id'));
