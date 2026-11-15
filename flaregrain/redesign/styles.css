@@ -355,6 +355,31 @@ dialog.drawer[open]{animation:drawIn .5s var(--ease)}
 .ask-steps > li[data-state=failed] .n{box-shadow:inset 0 0 0 1.5px var(--dispute);color:var(--dispute)}
 .ask-steps code{font-family:var(--mono);font-size:12px;color:var(--ink-2);overflow-wrap:anywhere}
 .ask-steps .tick{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* Ask, model-written answer: the same layout as a prepared answer, with the AI-summary label directly above the headline.
+   The dashed line down the left is its only frame. */
+.reading-block.ask-reading{border:0;border-left:1px dashed var(--line-2);border-radius:0;padding:2px 0 2px 22px;margin-top:0}
+.ask-reading > .mono{display:block}
+.ask-reading[data-state=fallback] > .mono{display:none}
+.ask-reading .support-answer:empty{display:none}
+.ask-making{margin-top:22px}
+.ask-making .related{margin-top:0}
+.ask-making .related summary{padding:0;min-height:24px}
+.cites-inline{white-space:nowrap}
+.ask-reading .plain{max-width:74ch}
+.answer h1 .cite-link,.answer h2 .cite-link{vertical-align:middle;letter-spacing:.03em}
+.team-mark{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.verified{text-align:left}
+.how > .sources{margin-top:0}
+.how > .sources > summary{padding:0;min-height:24px;color:var(--muted)}
+.how > .sources[open] > summary{margin-bottom:14px}
+/* The loader: while the model writes, the page's background sphere glows and gently pulses in the microgravity flame's
+   blue. It starts after a moment, so an answer asked before (which returns at once) never flashes it. */
+.stage-canvas,.glow{transition:opacity .8s var(--ease),filter .8s var(--ease)}
+.ask-writing .stage-canvas{animation:sphereLoad 2.8s .4s ease-in-out infinite}
+@keyframes sphereLoad{0%,100%{opacity:.7;filter:saturate(1.8) brightness(1.05) hue-rotate(10deg)}50%{opacity:1;filter:saturate(2.4) brightness(1.3) hue-rotate(10deg)}}
+@media (max-width:760px){@keyframes sphereLoad{0%,100%{opacity:.5;filter:saturate(1.8) brightness(1.05) hue-rotate(10deg)}50%{opacity:.8;filter:saturate(2.4) brightness(1.25) hue-rotate(10deg)}}}
+@media (prefers-reduced-motion:reduce){.ask-writing .stage-canvas{opacity:.8!important;filter:saturate(2.2) brightness(1.2) hue-rotate(10deg)}}
+@media (max-width:520px){.reading-block.ask-reading{padding-left:14px}}
 .ask-reasons{list-style:disc;margin:6px 0 0;padding-left:18px;display:grid;gap:2px}
 .ask-reasons li{font-size:var(--fs-meta);color:var(--muted)}
 .cites{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}

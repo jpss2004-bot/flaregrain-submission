@@ -22,6 +22,7 @@ const ask = q => fetch(site + '/api/ask?q=' + encodeURIComponent(q)).then(r => r
 const reading = (body, type = 'application/json') => fetch(site + '/api/ask-reading', {method: 'POST', headers: {'Content-Type': type}, body: typeof body === 'string' ? body : JSON.stringify(body)})
   .then(async r => ({status: r.status, body: await r.json().catch(() => null)}));
 const Q = 'How does oxygen change flame spread?';
+const PLAIN = 'how does oxygen change flame spread'; // what the proxy is sent for Q
 const PREPARED = 'How long did the flame take to go out after airflow was cut?';
 
 // Off (the default): /api/ask is today's, and nothing reaches a proxy.
@@ -52,7 +53,7 @@ const good = body => [200, {q: body.q, records: body.records, passages: body.pas
 reply = good;
 r = await reading({q: Q});
 const sent = JSON.parse(seen.at(-1).body);
-expect('the proxy gets only the question and the ranked source IDs', Object.keys(sent).sort().join() === 'passages,q,records' && sent.q === Q &&
+expect('the proxy gets only the question and the ranked source IDs', Object.keys(sent).sort().join() === 'passages,q,records' && sent.q === PLAIN &&
   String(sent.records) === String(ranked.records) && String(sent.passages) === String(ranked.passages));
 expect('a matching answer comes back with each sentence\'s NASA links and the removed count, no removed text',
   r.body.status === 'ok' && r.body.sentences.length === 2 && r.body.sentences.every(s => s.sources.length && s.sources.every(x => /^https:\/\//.test(x.url))) &&
@@ -61,6 +62,15 @@ expect('steps: the instant fact count matches the facts the proxy is given', a.r
 expect('steps: counts, fingerprint and the checker\'s reasons come back, never a removed sentence\'s text',
   r.body.counts?.records === ranked.records.length && r.body.counts?.passages === ranked.passages.length && r.body.counts?.facts === facts.length &&
   JSON.stringify(r.body.reasons) === JSON.stringify(['987 vol% is not in the fields']) && !JSON.stringify(r.body).includes('invented'), JSON.stringify(r.body).slice(0, 300));
+// Asked before: small wording changes reach the proxy as the same question, so its saved answer is recognised.
+for (const typed of ['  how does OXYGEN   change flame spread??  ', '“How does oxygen change flame spread?!”', 'How Does Oxygen Change Flame Spread']) {
+  r = await reading({q: typed}); const again = JSON.parse(seen.at(-1).body);
+  expect('asked before: ' + JSON.stringify(typed) + ' is sent as the same question, with the same sources', again.q === PLAIN &&
+    String(again.records) === String(ranked.records) && String(again.passages) === String(ranked.passages) && r.body.status === 'ok', again.q);
+}
+r = await reading({q: 'Does flame spread change with O2 at 21%?'});
+expect('asked before: only case, spacing and end punctuation change; inner words and marks stay', JSON.parse(seen.at(-1).body).q === 'does flame spread change with o2 at 21', JSON.parse(seen.at(-1).body).q);
+reply = good;
 reply = body => [200, {...good(body)[1], removed: Array.from({length: 6}, (_, i) => ({text: 'secret removed text ' + i, cites: ['F1'], problems: ['x'.repeat(200) + i, 'second']}))}];
 r = await reading({q: Q});
 expect('steps: at most 4 reasons, each cut to 120 characters, first problem only', r.body.reasons.length === 4 && r.body.reasons.every(x => x.length === 120) &&
@@ -76,6 +86,9 @@ delayMs = 0; liveAsk.deadlineMs = deadline;
 reply = body => [200, {...good(body)[1], cached: true, generatedAt: '2026-11-15T15:02:00.000Z'}];
 r = await reading({q: Q});
 expect('a cached answer keeps its mark and time', r.body.status === 'ok' && r.body.cached === true && r.body.generatedAt === '2026-11-15T15:02:00.000Z');
+reply = body => body.q === PLAIN ? [200, {...good(body)[1], cached: true, generatedAt: '2026-11-15T15:02:00.000Z'}] : good(body);
+r = await reading({q: 'how does oxygen change flame spread ?'});
+expect('asked before: a reworded repeat gets the saved answer, marked cached', r.body.status === 'ok' && r.body.cached === true && r.body.sentences.length === 2, JSON.stringify(r.body).slice(0, 200));
 for (const [name, make, reason] of [
   ['another fingerprint', body => [200, {...good(body)[1], factsHash: '00000000'}], 'mismatch'],
   ['other sources', body => [200, {...good(body)[1], records: []}], 'mismatch'],

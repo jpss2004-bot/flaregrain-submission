@@ -75,35 +75,53 @@
     const names = a.compare ? a.compare.map(id => (a.ranks.find(r => r.id === id) || {}).name || id) : [];
     const investigations = a.investigations.length ? `<details class="related"><summary class="mono">${plural(a.investigations.length, 'ranked investigation', 'ranked investigations')}</summary>
       <ol class="inv">${a.investigations.map(v => `<li><b>${esc(v.name)}</b> <span class="mono">${esc(v.psi)}</span>${v.matched.length ? `<span>${esc(v.matched.join(' · '))}</span>` : ''}${v.weaker ? `<span class="weak">Ranked below ${esc(a.investigations[0].name)}: ${esc(v.weaker)}</span>` : ''}</li>`).join('')}</ol></details>` : '';
-    const passages = a.passages.length ? `<details class="related"><summary class="mono">${plural(a.passages.length, 'report passage', 'report passages')}</summary>
+    const passages = a.passages.length ? `<details class="related" open><summary class="mono">${plural(a.passages.length, 'report passage', 'report passages')}</summary>
       <ol class="passages">${a.passages.map(p => `<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.report)} · PDF p. ${esc(p.page)} ${ICON.out}</a><p>${marked(p.snippet)}</p></li>`).join('')}</ol></details>` : '';
 
-    slot.innerHTML = `
-      <p class="q mono line-in" style="--d:0">${esc(a.query)}</p>
-      <${H} class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : a.reading?.live ? 'From the closest NASA sources' : HEAD[a.status]}</${H}>
+    const live = !lead && a.reading?.live;
+    // The evidence under an answer is one closed line that opens to the record chips and report pages.
+    const sourceParts = [
+      passagesWithExcerpt.length && plural(passagesWithExcerpt.length, 'cited passage', 'cited passages'),
+      a.ranks.length && plural(a.ranks.length, a.ranks.every(r => !r.psiRow) ? 'checked record' : 'ranked record', a.ranks.every(r => !r.psiRow) ? 'checked records' : 'ranked records'),
+      a.passages.length && plural(a.passages.length, 'NASA report page', 'NASA report pages'),
+      a.investigations.length && plural(a.investigations.length, 'ranked investigation', 'ranked investigations')].filter(Boolean);
+    // One layout for every answer: question, headline, supporting lines, status badge, then (How we know).
+    // A model-written answer fills the same places once it lands; its label stays on the block that holds its sentences.
+    const top = live ? `<section class="reading-block ask-reading line-in" style="--d:1" id="ask-reading" aria-labelledby="ask-reading-h" data-state="writing">
+        <span class="mono" id="ask-reading-h">AI summary · NASA sources linked below</span>
+        <${H} tabindex="-1" id="answer-h">Reading the NASA sources…</${H}>
+        ${a.limitation ? `<p class="plain" id="ask-lede" hidden>${esc(a.limitation)}</p>` : ''}
+        <div id="ask-lines"></div>
+        <div class="support-answer" id="ask-support"></div>
+        <div class="ask-making">
+          <details class="related ask-made" open><summary class="mono">How this answer is made</summary>
+            <ol class="ask-steps" aria-label="How this answer is made">${['Sources found', 'Facts built', 'Writing', 'Checked', 'Matched'].map((name, i) =>
+              `<li data-state="pending"><span class="mono n">${i + 1}</span><div><b>${name}</b> <span class="st"></span></div></li>`).join('')}</ol>
+          </details>
+        </div>
+        <p class="small" id="ask-reading-status" role="status">The live model is writing an answer from the sources below. Only sentences the checker matches to them are shown.</p>
+      </section>` : `<${H} class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : HEAD[a.status]}</${H}>
       ${lead ? `<p class="cite-row line-in" style="--d:1">${cite(lead)}</p>` : ''}
       ${rest.map((f, i) => `<p class="plain line-in" style="--d:${2 + i}">${esc(f.text)} ${cite(f)}</p>`).join('')}
       ${!lead && a.limitation ? `<p class="plain line-in" style="--d:2">${a.status === 'table' ? mk('psi') + ' ' : ''}${esc(a.limitation)}</p>` : ''}
       <div class="line-in support-answer" style="--d:3">
         ${N ? `<button class="verified" type="button" id="verified">${ICON.check}Supported by ${plural(N, 'cited NASA source', 'cited NASA sources')}</button>`
-            : a.reading?.live ? '' : `<p class="no-source mono">${mk('missing')}No cited NASA source answers this directly</p>`}
+            : `<p class="no-source mono">${mk('missing')}No cited NASA source answers this directly</p>`}
+        ${lead ? `<p class="team-mark mono">${mk('checked')}Checked by the team</p>` : ''}
         ${lead && a.limitation ? `<p class="limit"><span class="mono">Limitation</span>${esc(a.limitation)}</p>` : ''}
       </div>
-      ${a.compare ? `<div class="next line-in" style="--d:4"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(a.compare[0])},${encodeURIComponent(a.compare[1])}&q=${encodeURIComponent(a.query)}">Compare ${esc(names[0])} and ${esc(names[1])} ${ICON.arrow}</a></div>` : ''}
+      ${a.compare ? `<div class="next line-in" style="--d:4"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(a.compare[0])},${encodeURIComponent(a.compare[1])}&q=${encodeURIComponent(a.query)}">Compare ${esc(names[0])} and ${esc(names[1])} ${ICON.arrow}</a></div>` : ''}`;
 
-      ${a.reading?.live ? `<section class="reading-block ask-reading line-in" style="--d:4" id="ask-reading" aria-labelledby="ask-reading-h">
-        <span class="mono" id="ask-reading-h">Flaregrain reading · not NASA evidence</span>
-        <ol class="ask-steps" aria-label="How this answer is made">${['Sources found', 'Facts built', 'Writing', 'Checked', 'Matched'].map((name, i) =>
-          `<li data-state="pending"><span class="mono n">${i + 1}</span><div><b>${name}</b> <span class="st"></span></div></li>`).join('')}</ol>
-        <p class="small" id="ask-reading-status" role="status">The live model is writing an answer from the sources below. Only sentences the checker matches to them are shown.</p>
-      </section>` : ''}
-      <section class="how line-in" style="--d:5" aria-labelledby="how-h">
-        <span class="mono" id="how-h">${a.ranks.length || passagesWithExcerpt.length ? '(How we know)' : '(Closest evidence)'}</span>
+    slot.innerHTML = `
+      ${top}
+      ${sourceParts.length ? `<section class="how line-in" style="--d:5">
+        <details class="related sources" id="sources"><summary class="mono">${a.ranks.length || passagesWithExcerpt.length || a.passages.length ? 'Sources' : 'Closest evidence'}: ${sourceParts.join(' · ')}</summary>
         ${passagesWithExcerpt.length ? `<div class="chips">${passagesWithExcerpt.map(passageChip).join('')}</div>` : ''}
         ${a.ranks.length ? `<div class="chips">${a.ranks.slice(0, 4).map((r, i) => recordChip(r, i, shownUrls)).join('')}</div>` : ''}
         ${a.ranks.length > 4 ? `<details class="related"><summary class="mono">${plural(a.ranks.length - 4, 'more ranked record', 'more ranked records')}</summary><div class="chips">${a.ranks.slice(4).map((r, i) => recordChip(r, i + 4, shownUrls)).join('')}</div></details>` : ''}
         ${investigations}${passages}
-      </section>`;
+        </details>
+      </section>` : ''}`;
     slot.hidden = false;
     slot.classList.remove('play', 'static'); void slot.offsetWidth;
     slot.classList.add(reduced ? 'static' : 'play');
@@ -126,8 +144,15 @@
   // Model-written Ask: the server sends the question and the sources it ranked to the team's model; only checked sentences come back.
   async function reading(query, ticket, a) {
     const box = document.getElementById('ask-reading'), status = document.getElementById('ask-reading-status');
-    const steps = box && box.querySelector('.ask-steps');
-    if (!box || !status || !steps) return;
+    const steps = box && box.querySelector('.ask-steps'), made = box && box.querySelector('.ask-made');
+    if (!box || !status || !steps || !made) return;
+    // While the model writes, the page's background sphere is the loader (styles.css, .ask-writing); once a reply lands
+    // it settles and the steps stay as "How this answer was made".
+    document.documentElement.classList.add('ask-writing');
+    // No answer to show: the neutral title and today's message take the headline's place.
+    const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden'); settle('fallback', true);
+      const sources = document.getElementById('sources'); if (sources) sources.open = true; };
+    const settle = (state, open) => { document.documentElement.classList.remove('ask-writing'); box.dataset.state = state; made.open = open; made.querySelector('summary').textContent = 'How this answer was made'; };
     const step = (n, state, html) => { const li = steps.children[n - 1]; li.dataset.state = state; li.querySelector('.st').innerHTML = html; };
     const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     step(1, 'done', `${count(a.ranks.length, 'checked record', 'checked records')} and ${count(a.passages.length, 'NASA report page', 'NASA report pages')}, ranked for this question`);
@@ -140,8 +165,9 @@
       const counts = new Map(); (list || []).forEach(r => counts.set(r, (counts.get(r) || 0) + 1));
       return counts.size ? `<ul class="ask-reasons">${[...counts].map(([r, n]) => `<li>${esc(r)}${n > 1 ? ` (${n})` : ''}</li>`).join('')}</ul>` : '';
     };
+    const at = body => new Date(body.generatedAt).toLocaleTimeString('en-CA', {timeZone: 'America/Halifax', hour: '2-digit', minute: '2-digit', hour12: false});
     const wrote = body => body.cached && body.generatedAt
-      ? `Reused: written by the live model at ${new Date(body.generatedAt).toLocaleTimeString('en-CA', {timeZone: 'America/Halifax', hour: '2-digit', minute: '2-digit', hour12: false})} AST`
+      ? `Reused: written by the live model at ${at(body)} AST`
       : `qwen3:4b on the team’s Mac mini wrote it${Number.isFinite(body.seconds) ? ` in ${body.seconds} s` : ''}`;
     try {
       const res = await fetch('/api/ask-reading', {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify({q: query})});
@@ -149,6 +175,7 @@
       clearInterval(timer);
       if (ticket !== latest || !box.isConnected) return; // another question was asked meanwhile
       if (!res.ok || body.status !== 'ok') {
+        neutral();
         const reason = body.reason || 'unavailable';
         if (reason === 'scope') step(1, 'failed', 'outside what Flaregrain covers');
         else if (reason === 'none') {
@@ -164,11 +191,33 @@
       step(3, 'done', wrote(body));
       step(4, 'done', `kept ${count(body.sentences.length, 'sentence', 'sentences')}, removed ${body.removed}` + reasonList(body.reasons));
       step(5, 'done', `same sources and facts fingerprint <code>${esc(body.factsHash || '')}</code>`);
-      status.insertAdjacentHTML('beforebegin', `<ol class="ask-answer">${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" style="white-space:normal" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
-      status.textContent = 'Only the kept sentences are shown, each with the NASA page it cites.';
+      // A short link at the end of each sentence: the record or report it cites and the PDF page. The full label is the title.
+      const short = src => {
+        const page = (src.url.match(/#page=(\d+)/) || src.label.match(/p\.\s*(\d+)/) || [])[1];
+        const doc = url => String(url || '').split('#')[0], word = name => name.split(' ')[0];
+        const pas = a.passages.find(p => p.url === src.url), recs = a.ranks.filter(r => r.source?.url && doc(r.source.url) === doc(src.url));
+        const name = pas ? pas.report.split(':')[0] : recs.length === 1 ? recs[0].name
+          : recs.length && recs.every(r => word(r.name) === word(recs[0].name)) ? word(recs[0].name) : src.label.split(' · ')[0];
+        return `<a class="cite-link" href="${esc(src.url)}" target="_blank" rel="noopener" title="${esc(src.label)}">${esc(name)}${page ? ' · p. ' + esc(page) : ''} ${ICON.out}</a>`;
+      };
+      const links = s => `<span class="cites-inline">${s.sources.map(short).join(' ')}</span>`;
+      const line = s => `<p class="plain">${esc(s.text)} ${links(s)}</p>`;
+      const [first, ...others] = body.sentences, reused = body.cached && body.generatedAt;
+      document.getElementById('answer-h').innerHTML = `${esc(first.text)} ${links(first)}`;
+      document.getElementById('ask-lede')?.remove();
+      document.getElementById('ask-lines').innerHTML = others.slice(0, 2).map(line).join('') +
+        (others.length > 2 ? `<details class="related"><summary class="mono">Show the full answer</summary>${others.slice(2).map(line).join('')}</details>` : '');
+      document.getElementById('ask-support').innerHTML =
+        `<button class="verified" type="button" id="verified">${ICON.check}${esc(body.sentences.length)} passed the checker, ${esc(body.removed)} removed${reused ? ` · asked before, ${at(body)} AST` : Number.isFinite(body.seconds) ? ` · ${body.seconds} s` : ''}</button>`;
+      // The same Compare button as a prepared answer, when the two top-ranked records can be compared.
+      const pair = a.ranks.slice(0, 2);
+      if (pair.length === 2 && pair.every(r => r.comparable)) document.getElementById('ask-support').insertAdjacentHTML('afterend',
+        `<div class="next"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(pair[0].id)},${encodeURIComponent(pair[1].id)}&q=${encodeURIComponent(query)}">Compare ${esc(pair[0].name)} and ${esc(pair[1].name)} ${ICON.arrow}</a></div>`);
+      settle(reused ? 'reused' : 'done', false);
+      status.textContent = ''; status.hidden = true;
     } catch {
       clearInterval(timer);
-      if (ticket === latest && box.isConnected) { step(3, 'failed', 'no answer from the live model'); status.textContent = 'Live model unavailable. The closest evidence is below.'; }
+      if (ticket === latest && box.isConnected) { neutral(); step(3, 'failed', 'no answer from the live model'); status.textContent = 'Live model unavailable. The closest evidence is below.'; }
     }
   }
 
@@ -183,7 +232,8 @@
         <pre>cd server && node server.mjs</pre><p>Then open <a href="http://127.0.0.1:8790/">http://127.0.0.1:8790/</a>.</p></div>`);
     }
     const ticket = ++latest;
-    message(`<p class="q mono">${esc(query)}</p><p class="searching mono" role="status">Searching the NASA records…</p>`);
+    document.documentElement.classList.remove('ask-writing');
+    message(`<p class="searching mono" role="status">Searching the NASA records…</p>`);
     if (scroll) slot.scrollIntoView({behavior: reduced ? 'auto' : 'smooth', block: 'start'});
     try {
       const res = await fetch('/api/ask?q=' + encodeURIComponent(query), {headers: {Accept: 'application/json'}});
@@ -214,6 +264,7 @@
     if (e.target.closest('#verified')) {
       const first = slot.querySelector('[data-chip] .chip-btn');
       if (!first) return;
+      for (let d = first.closest('details'); d; d = d.parentElement.closest('details')) d.open = true; // the closed Sources line
       if (first.getAttribute('aria-expanded') !== 'true') first.click();
       first.focus({preventScroll: true});
       first.scrollIntoView({behavior: reduced ? 'auto' : 'smooth', block: 'center'});

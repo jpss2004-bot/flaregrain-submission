@@ -265,7 +265,9 @@ async function askReading(req, res) {
   if (!askOn()) return fallback('off', 'The live model is off. The closest evidence is below.');
   const ranked = await rankSources(query);
   if (!ranked) return fallback('scope', offTopic);
-  const q = query.slice(0, liveAsk.limits.question);
+  // Sent to the model in one plain form (lower case, single spaces, no punctuation at either end), so a question asked
+  // before is recognised when only its capitals, spacing or final punctuation differ. Ranking uses the question as typed.
+  const q = (query.toLowerCase().replace(/\s+/g, ' ').replace(/^[\p{P}\s]+|[\p{P}\s]+$/gu, '') || query).slice(0, liveAsk.limits.question);
   const {facts, digest} = askFacts(ranked.records, ranked.passages, ranked.reports);
   try {
     const reply = await fetch(liveBase() + '/ask', {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'},
