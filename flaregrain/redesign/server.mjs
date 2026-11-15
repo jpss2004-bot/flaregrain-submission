@@ -47,7 +47,7 @@ function answer(query) {
     query,
     status: findings.length ? 'supported' : 'no-match',
     findings,
-    limitation: findings.length ? scopeLimit + (pair.some(record => record.id === 'S1') ? saffireDuration : '') : 'For now, Ask answers from 2 of the 13 checked records, and they do not answer that question directly.',
+    limitation: findings.length ? scopeLimit + (pair.some(record => record.id === 'S1') ? saffireDuration : '') : 'No checked NASA record answers this directly. Try a question about how flames spread, burn or go out.',
     supportingSources: findings.map(finding => finding.source),
     ranks: (related ? pair : []).map(record => ({
       id: record.id, name: record.name, relevance: 'Checked record', source: record.source, comparable: true,
