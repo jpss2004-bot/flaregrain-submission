@@ -152,6 +152,131 @@ function bound(answer, ids, started) {
   };
 }
 
+// ---------- Model-written Ask (JP, November 15) ----------
+// Off unless FLAREGRAIN_LIVE_ASK=1 and FLAREGRAIN_MINI_EXPLAIN_URL is set; then today's Ask is unchanged for the questions
+// it answers and the fallback for everything else. For other questions this server ranks the published sources itself
+// (the 11 comparable checked records and the report passages from the five NASA-series documents) and shows the closest
+// ones at once. The page then asks POST /api/ask-reading, which sends the question and the chosen source IDs, never source
+// text, to the Mini's proxy. The proxy builds the facts from its own copy of the same public data, qwen3:4b writes 1 to 4
+// sentences, and the page's checker keeps only those that cite facts and match them. This server keeps an answer only if it
+// names the same sources and carries the fingerprint of these facts, and shows each kept sentence with its NASA links.
+export const liveAsk = {waitMs: 40000, deadlineMs: 40000, limits: {question: 200, records: 3, passages: 4}};
+const askOn = () => process.env.FLAREGRAIN_LIVE_ASK === '1' && !!liveBase();
+const offTopic = 'Flaregrain covers NASA fire experiments in space: how materials burn, how flames spread and how they go out in different air, airflow and gravity. Try “How long did the flame take to go out after airflow was cut?” or “How does oxygen change flame spread?”';
+const askNoAnswer = 'Flaregrain answers from the checked NASA records and report pages closest to your question, listed below.';
+const fireWords = /flam|fire|burn|combust|ignit|extin|oxygen|\bo2\b|o₂|air ?flow|\bflow|\bfans?\b|spread|smoke|soot|pressure|\bpsi\b|gravity|fuel|droplet|pmma|acrylic|fabric|sibal|cotton|kapton|methanol|heptane|ethanol|material|sample|saffire|bass|\bflex\b|cfi|temperat|heat|radiat|suppress|detect|habitat|moon|mars|cabin|spacecraft|candle|\bwire|velocity|thick|film|char|melt|pyroly/i;
+const stop = new Set(('the and for from with into over under than then there their they them this that these those what which who whom how why when where ' +
+  'does did can could would should will about was were are has have had been being its not but you your our nasa test tests tested record records report reports').split(' '));
+const askTokens = text => (String(text).toLowerCase().match(/[a-z0-9][a-z0-9.-]*[a-z0-9]|[a-z0-9]/g) || [])
+  .filter(word => word.length > 2 && !stop.has(word)).map(word => word.length > 4 && word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word);
+let askData = null;
+async function askSources() {
+  if (askData !== null) return askData || null;
+  try {
+    const reports = JSON.parse(await readFile(new URL('../data/report-passages.json', import.meta.url), 'utf8'));
+    const index = docs => {
+      const tf = docs.map(tokens => tokens.reduce((map, word) => map.set(word, (map.get(word) || 0) + 1), new Map()));
+      const df = new Map(); tf.forEach(map => map.forEach((_, word) => df.set(word, (df.get(word) || 0) + 1)));
+      const avg = docs.reduce((sum, tokens) => sum + tokens.length, 0) / Math.max(1, docs.length);
+      return query => tf.map((map, i) => query.reduce((score, word) => {
+        const f = map.get(word); if (!f) return score;
+        const idf = Math.log(1 + (docs.length - df.get(word) + 0.5) / (df.get(word) + 0.5));
+        return score + idf * f * 2.2 / (f + 1.2 * (0.25 + 0.75 * docs[i].length / avg));
+      }, 0));
+    };
+    const recordIds = [...comparable];
+    const recordText = id => { const r = checked.get(id); return [r.name, r.study, r.investigation, r.events, r.observation, ...r.fields.map(f => f.field + ' ' + f.value)].join(' '); };
+    askData = {reports, recordIds, scoreRecords: index(recordIds.map(id => askTokens(recordText(id)))),
+      scorePassages: index(reports.passages.map(p => askTokens(p[2])))};
+  } catch (error) { console.error('Ask: report passages unavailable', error.message); askData = false; }
+  return askData || null;
+}
+const passageLabel = doc => doc.name + ' report';
+// Rank the published sources for a question. Returns null when the question is outside fire science.
+export async function rankSources(query) {
+  const src = await askSources();
+  const words = [...new Set(askTokens(query))];
+  if (!src || !words.length || !fireWords.test(query)) return null;
+  const top = (scores, n, min) => scores.map((score, i) => [score, i]).filter(([score]) => score >= min).sort((a, b) => b[0] - a[0]).slice(0, n);
+  const recs = top(src.scoreRecords(words), liveAsk.limits.records, 0.5).map(([, i]) => src.recordIds[i]);
+  const pas = top(src.scorePassages(words), 3, 3).map(([, i]) => i);
+  return recs.length || pas.length ? {words, records: recs, passages: pas, reports: src.reports} : null;
+}
+function snippet(text, words) {
+  const lower = text.toLowerCase();
+  const at = Math.max(0, Math.min(...words.map(word => lower.indexOf(word)).filter(i => i >= 0), text.length) - 80);
+  let cut = text.slice(at, at + 260).trim();
+  for (const word of words.filter(word => word.length > 3)) cut = cut.replace(new RegExp('\\b(' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\w*)', 'gi'), '<mark>$1</mark>');
+  return (at > 0 ? '… ' : '') + cut + (at + 260 < text.length ? ' …' : '');
+}
+// The facts the proxy builds for these sources, in its order, with the label and NASA link each one cites.
+export function askFacts(recordIds, passageIds, reports) {
+  const facts = recordIds.flatMap(id => checked.get(id).fields.filter(field => field.field !== 'Sample or identifier')
+    .map(field => ({line: [checked.get(id).name, field.field, String(field.value), field.status || ''].join('|'), label: field.source || checked.get(id).source.label, url: field.url || checked.get(id).source.url})));
+  for (const i of passageIds) {
+    const [docId, page, text] = reports.passages[i]; const doc = reports.docs[docId];
+    facts.push({line: [passageLabel(doc), 'PDF p. ' + page, text, ''].join('|'), label: doc.name + ' · PDF p. ' + page, url: doc.url + '#page=' + page});
+  }
+  let hash = 2166136261 >>> 0;
+  const text = facts.map(fact => fact.line).join('\n');
+  for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619) >>> 0; }
+  return {facts, digest: hash.toString(16).padStart(8, '0')};
+}
+// Extra Ask fields for /api/ask when model-written Ask is on and today's Ask has no prepared answer.
+async function askExtras(query) {
+  const ranked = await rankSources(query);
+  if (!ranked) return {status: 'unanswerable', limitation: offTopic, ranks: [], passages: [], compare: null};
+  return {
+    limitation: askNoAnswer,
+    ranks: ranked.records.map(id => { const r = checked.get(id); return {id, name: r.name, relevance: 'Checked record', reason: 'Ranked by its NASA fields for this question.', source: r.source, comparable: true}; }),
+    passages: ranked.passages.map(i => { const [docId, page, text] = ranked.reports.passages[i]; const doc = ranked.reports.docs[docId];
+      return {report: doc.name, page, url: doc.url + '#page=' + page, snippet: snippet(text, ranked.words)}; }),
+    compare: null, reading: {live: true},
+  };
+}
+async function askReading(req, res) {
+  const started = Date.now();
+  const noStore = {'Cache-Control': 'no-store'};
+  if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) return send(res, 415, {error: 'Send application/json.'}, undefined, noStore);
+  const text = await readBody(req, 1024);
+  if (text === null) return send(res, 413, {error: 'Request too large.'}, undefined, noStore);
+  let body; try { body = JSON.parse(text); } catch { return send(res, 400, {error: 'Send {"q": "…"}.'}, undefined, noStore); }
+  const query = body && typeof body.q === 'string' && Object.keys(body).join() === 'q' ? body.q.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
+  if (!query) return send(res, 400, {error: 'Send {"q": "…"}.'}, undefined, noStore);
+  const fallback = (reason, status) => send(res, 200, {status: 'fallback', reason, message: status}, undefined, noStore);
+  if (!askOn()) return fallback('off', 'The live model is off. The closest evidence is below.');
+  const ranked = await rankSources(query);
+  if (!ranked) return fallback('scope', offTopic);
+  const q = query.slice(0, liveAsk.limits.question);
+  const {facts, digest} = askFacts(ranked.records, ranked.passages, ranked.reports);
+  try {
+    const reply = await fetch(liveBase() + '/ask', {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+      body: JSON.stringify({q, records: ranked.records, passages: ranked.passages}), signal: AbortSignal.timeout(Math.max(1000, liveAsk.deadlineMs - (Date.now() - started)))});
+    const answer = await reply.json().catch(() => null);
+    if (reply.status === 429) return fallback('limited', 'Live answers are limited right now. The closest evidence is below.');
+    if (reply.status === 503) return fallback('busy', 'The live model is busy with another question. The closest evidence is below.');
+    if (!reply.ok || !answer) return fallback('unavailable', 'Live model unavailable. The closest evidence is below.');
+    const sentence = item => item && typeof item.text === 'string' && item.text.trim() && item.text.length <= 600 && Array.isArray(item.cites) && item.cites.length &&
+      item.cites.every(id => typeof id === 'string' && /^F\d+$/.test(id) && Number(id.slice(1)) >= 1 && Number(id.slice(1)) <= facts.length) &&
+      (item.problems === undefined || (Array.isArray(item.problems) && !item.problems.length));
+    if (String(answer.records) !== String(ranked.records) || String(answer.passages) !== String(ranked.passages) || answer.factsHash !== digest ||
+      !Array.isArray(answer.passed) || answer.passed.length > 4 || !answer.passed.every(sentence) || (answer.removed !== undefined && !Array.isArray(answer.removed))) {
+      return fallback('mismatch', 'Live model unavailable. The closest evidence is below.');
+    }
+    if (!answer.passed.length) return fallback('none', 'The live model wrote nothing that passed the checker for this question. The closest evidence is below.');
+    const cited = item => [...new Map(item.cites.map(id => facts[Number(id.slice(1)) - 1]).map(fact => [fact.url, {label: fact.label, url: fact.url}])).values()];
+    return send(res, 200, {
+      status: 'ok', model: typeof answer.model === 'string' ? answer.model.slice(0, 40) : 'qwen3:4b',
+      seconds: Number.isFinite(answer.seconds) ? answer.seconds : +((Date.now() - started) / 1000).toFixed(1), factsHash: digest,
+      sentences: answer.passed.map(item => ({text: item.text.trim(), sources: cited(item)})), removed: (answer.removed || []).length,
+      ...(answer.cached === true && typeof answer.generatedAt === 'string' && Number.isFinite(Date.parse(answer.generatedAt)) ? {cached: true, generatedAt: new Date(Date.parse(answer.generatedAt)).toISOString()} : {}),
+    }, undefined, noStore);
+  } catch (error) {
+    const timeout = error.name === 'TimeoutError' || error.name === 'AbortError';
+    return fallback(timeout ? 'timeout' : 'unreachable', 'Live model unavailable. The closest evidence is below.');
+  }
+}
+
 function readBody(req, limit = 256) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -211,7 +336,7 @@ function send(res, status, body, type = 'application/json', headers = {}) {
   res.end(type === 'application/json' && typeof body !== 'string' ? JSON.stringify(body) : body);
 }
 
-function api(res, url) {
+async function api(res, url) {
   const search = url.searchParams;
   const ids = (search.get('ids') || '').split(',');
   const pair = ids.length === 2 ? data.pairs[ids.join(',')] : null;
@@ -225,7 +350,9 @@ function api(res, url) {
     case '/api/catalog': return send(res, 200, catalog(search));
     case '/api/ask': {
       const query = (search.get('q') || '').trim().slice(0, 300);
-      return query ? send(res, 200, answer(query)) : send(res, 400, {error: 'Type a question first.'});
+      if (!query) return send(res, 400, {error: 'Type a question first.'});
+      const reply = answer(query);
+      return send(res, 200, askOn() && !reply.findings.length ? {...reply, ...await askExtras(query)} : reply);
     }
     case '/api/record': {
       const record = checked.get(search.get('id'));
@@ -254,6 +381,10 @@ function api(res, url) {
 }
 
 export const server = createServer(async (req, res) => {
+  if (req.method === 'POST' && /^\/api\/ask-reading(?:\?|$)/.test(req.url)) return askReading(req, res).catch(error => {
+    console.error(error);
+    if (!res.headersSent) send(res, 500, {error: 'Unable to load the submission.'});
+  });
   if (req.method === 'POST' && /^\/api\/explain(?:\?|$)/.test(req.url)) return explain(req, res).catch(error => {
     console.error(error);
     if (!res.headersSent) send(res, 500, {error: 'Unable to load the submission.'});
@@ -261,7 +392,7 @@ export const server = createServer(async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, {error: 'Use GET or HEAD.'});
   try {
     const url = new URL(req.url, 'http://127.0.0.1');
-    if (url.pathname.startsWith('/api/')) return api(res, url);
+    if (url.pathname.startsWith('/api/')) return await api(res, url);
     if (url.pathname === '/dashboard/Foundry%20dashboard.html') return send(res, 200,
       '<!doctype html><html lang="en"><meta charset="utf-8"><title>Submission scope</title><link rel="stylesheet" href="/styles.css"><main class="page-main"><p>' + notIncluded + '</p><p><a href="/compare.html" target="_parent">Open Compare</a></p></main></html>', 'text/html');
     const filename = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);

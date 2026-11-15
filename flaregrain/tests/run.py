@@ -200,5 +200,16 @@ else:
     except subprocess.TimeoutExpired:
         expect("live Explain checks complete", False)
 
+# Model-written Ask in redesign/server.mjs, off by default, against a stand-in model proxy (tests/live_ask.mjs).
+if node is not None:
+    try:
+        ask = subprocess.run([node, str(ROOT / "tests" / "live_ask.mjs")], capture_output=True, text=True, timeout=120)
+        lines = [line for line in ask.stdout.splitlines() if line.startswith(("passed ", "FAILED "))]
+        for line in lines:
+            expect(line.split(" ", 1)[1], line.startswith("passed "))
+        expect("model Ask checks complete", ask.returncode == 0 and bool(lines))
+    except subprocess.TimeoutExpired:
+        expect("model Ask checks complete", False)
+
 print(f"{len(failures)} failed" if failures else "all build checks passed")
 sys.exit(1 if failures else 0)

@@ -79,17 +79,21 @@
 
     slot.innerHTML = `
       <p class="q mono line-in" style="--d:0">${esc(a.query)}</p>
-      <h2 class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : HEAD[a.status]}</h2>
+      <h2 class="line-in" style="--d:1" tabindex="-1" id="answer-h">${lead ? esc(lead.text) : a.reading?.live ? 'From the closest NASA sources' : HEAD[a.status]}</h2>
       ${lead ? `<p class="cite-row line-in" style="--d:1">${cite(lead)}</p>` : ''}
       ${rest.map((f, i) => `<p class="plain line-in" style="--d:${2 + i}">${esc(f.text)} ${cite(f)}</p>`).join('')}
       ${!lead && a.limitation ? `<p class="plain line-in" style="--d:2">${a.status === 'table' ? mk('psi') + ' ' : ''}${esc(a.limitation)}</p>` : ''}
       <div class="line-in support-answer" style="--d:3">
         ${N ? `<button class="verified" type="button" id="verified">${ICON.check}Supported by ${plural(N, 'cited NASA source', 'cited NASA sources')}</button>`
-            : `<p class="no-source mono">${mk('missing')}No cited NASA source answers this directly</p>`}
+            : a.reading?.live ? '' : `<p class="no-source mono">${mk('missing')}No cited NASA source answers this directly</p>`}
         ${lead && a.limitation ? `<p class="limit"><span class="mono">Limitation</span>${esc(a.limitation)}</p>` : ''}
       </div>
       ${a.compare ? `<div class="next line-in" style="--d:4"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(a.compare[0])},${encodeURIComponent(a.compare[1])}&q=${encodeURIComponent(a.query)}">Compare ${esc(names[0])} and ${esc(names[1])} ${ICON.arrow}</a></div>` : ''}
 
+      ${a.reading?.live ? `<section class="reading-block ask-reading line-in" style="--d:4" id="ask-reading" aria-labelledby="ask-reading-h">
+        <span class="mono" id="ask-reading-h">Flaregrain reading · not NASA evidence</span>
+        <p class="small" id="ask-reading-status" role="status">The live model is writing an answer from the sources below. Only sentences the checker matches to them are shown.</p>
+      </section>` : ''}
       <section class="how line-in" style="--d:5" aria-labelledby="how-h">
         <span class="mono" id="how-h">${a.ranks.length || passagesWithExcerpt.length ? '(How we know)' : '(Closest evidence)'}</span>
         ${passagesWithExcerpt.length ? `<div class="chips">${passagesWithExcerpt.map(passageChip).join('')}</div>` : ''}
@@ -116,6 +120,24 @@
     threadBox.innerHTML = earlier.length ? `<span class="mono">Earlier</span>${earlier.map(q => `<button type="button" class="earlier" data-ask="${esc(q)}">${esc(q)}</button>`).join('')}<button type="button" class="clear" id="clear-thread">Clear conversation</button>` : '';
   }
 
+  // Model-written Ask: the server sends the question and the sources it ranked to the team's model; only checked sentences come back.
+  async function reading(query, ticket) {
+    const box = document.getElementById('ask-reading'), status = document.getElementById('ask-reading-status');
+    if (!box || !status) return;
+    try {
+      const res = await fetch('/api/ask-reading', {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify({q: query})});
+      const body = await res.json().catch(() => ({}));
+      if (ticket !== latest || !box.isConnected) return; // another question was asked meanwhile
+      if (!res.ok || body.status !== 'ok') { status.textContent = body.message || 'Live model unavailable. The closest evidence is below.'; return; }
+      const at = body.cached && body.generatedAt ? new Date(body.generatedAt).toLocaleTimeString('en-CA', {timeZone: 'America/Halifax', hour: '2-digit', minute: '2-digit', hour12: false}) : '';
+      status.insertAdjacentHTML('beforebegin', `<ol>${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
+      status.textContent = `${body.sentences.length} ${body.sentences.length === 1 ? 'sentence' : 'sentences'} passed the checker, ${body.removed} removed (${body.seconds}s)` +
+        (at ? `. Written by the live model at ${at} AST and reused for this question.` : '.');
+    } catch {
+      if (ticket === latest && box.isConnected) status.textContent = 'Live model unavailable. The closest evidence is below.';
+    }
+  }
+
   async function ask(query, {scroll = true} = {}) {
     if (thread[thread.length - 1] !== query) thread.push(query);
     if (thread.length > 12) thread = thread.slice(-12);
@@ -136,6 +158,7 @@
       if (ticket !== latest) return;
       render(body);
       document.getElementById('answer-h').focus({preventScroll: true});
+      if (body.reading?.live) reading(query, ticket);
     } catch (e) {
       if (ticket !== latest) return;
       message(`<p class="q mono">${esc(query)}</p><h2 id="answer-h" tabindex="-1">The answer couldn’t load</h2>
