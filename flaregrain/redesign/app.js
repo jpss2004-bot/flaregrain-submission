@@ -93,6 +93,8 @@
 
       ${a.reading?.live ? `<section class="reading-block ask-reading line-in" style="--d:4" id="ask-reading" aria-labelledby="ask-reading-h">
         <span class="mono" id="ask-reading-h">Flaregrain reading · not NASA evidence</span>
+        <ol class="ask-steps" aria-label="How this answer is made">${['Sources found', 'Facts built', 'Writing', 'Checked', 'Matched'].map((name, i) =>
+          `<li data-state="pending"><span class="mono n">${i + 1}</span><div><b>${name}</b> <span class="st"></span></div></li>`).join('')}</ol>
         <p class="small" id="ask-reading-status" role="status">The live model is writing an answer from the sources below. Only sentences the checker matches to them are shown.</p>
       </section>` : ''}
       <section class="how line-in" style="--d:5" aria-labelledby="how-h">
@@ -122,20 +124,51 @@
   }
 
   // Model-written Ask: the server sends the question and the sources it ranked to the team's model; only checked sentences come back.
-  async function reading(query, ticket) {
+  async function reading(query, ticket, a) {
     const box = document.getElementById('ask-reading'), status = document.getElementById('ask-reading-status');
-    if (!box || !status) return;
+    const steps = box && box.querySelector('.ask-steps');
+    if (!box || !status || !steps) return;
+    const step = (n, state, html) => { const li = steps.children[n - 1]; li.dataset.state = state; li.querySelector('.st').innerHTML = html; };
+    const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    step(1, 'done', `${count(a.ranks.length, 'checked record', 'checked records')} and ${count(a.passages.length, 'NASA report page', 'NASA report pages')}, ranked for this question`);
+    step(2, 'done', `${count(a.reading.facts || 0, 'numbered fact', 'numbered facts')} from those sources`);
+    const started = Date.now();
+    const writing = () => step(3, 'active', `qwen3:4b on the team’s Mac mini is writing… <span class="tick">${Math.floor((Date.now() - started) / 1000)} s</span>`);
+    writing();
+    const timer = setInterval(() => { if (box.isConnected) writing(); else clearInterval(timer); }, 1000);
+    const reasonList = list => {
+      const counts = new Map(); (list || []).forEach(r => counts.set(r, (counts.get(r) || 0) + 1));
+      return counts.size ? `<ul class="ask-reasons">${[...counts].map(([r, n]) => `<li>${esc(r)}${n > 1 ? ` (${n})` : ''}</li>`).join('')}</ul>` : '';
+    };
+    const wrote = body => body.cached && body.generatedAt
+      ? `Reused: written by the live model at ${new Date(body.generatedAt).toLocaleTimeString('en-CA', {timeZone: 'America/Halifax', hour: '2-digit', minute: '2-digit', hour12: false})} AST`
+      : `qwen3:4b on the team’s Mac mini wrote it${Number.isFinite(body.seconds) ? ` in ${body.seconds} s` : ''}`;
     try {
       const res = await fetch('/api/ask-reading', {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify({q: query})});
       const body = await res.json().catch(() => ({}));
+      clearInterval(timer);
       if (ticket !== latest || !box.isConnected) return; // another question was asked meanwhile
-      if (!res.ok || body.status !== 'ok') { status.textContent = body.message || 'Live model unavailable. The closest evidence is below.'; return; }
-      const at = body.cached && body.generatedAt ? new Date(body.generatedAt).toLocaleTimeString('en-CA', {timeZone: 'America/Halifax', hour: '2-digit', minute: '2-digit', hour12: false}) : '';
-      status.insertAdjacentHTML('beforebegin', `<ol>${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" style="white-space:normal" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
-      status.textContent = `${body.sentences.length} ${body.sentences.length === 1 ? 'sentence' : 'sentences'} passed the checker, ${body.removed} removed (${body.seconds}s)` +
-        (at ? `. Written by the live model at ${at} AST and reused for this question.` : '.');
+      if (!res.ok || body.status !== 'ok') {
+        const reason = body.reason || 'unavailable';
+        if (reason === 'scope') step(1, 'failed', 'outside what Flaregrain covers');
+        else if (reason === 'none') {
+          step(3, 'done', wrote(body));
+          step(4, 'failed', `kept 0 sentences, removed ${body.removed || 0}` + reasonList(body.reasons));
+        } else if (reason === 'mismatch') {
+          step(3, 'done', wrote(body)); step(4, 'done', 'the checker ran on the proxy');
+          step(5, 'failed', 'the answer did not name the same sources and facts, so it is not shown');
+        } else step(3, 'failed', 'no answer from the live model');
+        status.textContent = body.message || 'Live model unavailable. The closest evidence is below.';
+        return;
+      }
+      step(3, 'done', wrote(body));
+      step(4, 'done', `kept ${count(body.sentences.length, 'sentence', 'sentences')}, removed ${body.removed}` + reasonList(body.reasons));
+      step(5, 'done', `same sources and facts fingerprint <code>${esc(body.factsHash || '')}</code>`);
+      status.insertAdjacentHTML('beforebegin', `<ol class="ask-answer">${body.sentences.map(s => `<li><p>${esc(s.text)} ${s.sources.map(src => `<a class="cite-link" style="white-space:normal" href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.label)} ${ICON.out}</a>`).join(' ')}</p></li>`).join('')}</ol>`);
+      status.textContent = 'Only the kept sentences are shown, each with the NASA page it cites.';
     } catch {
-      if (ticket === latest && box.isConnected) status.textContent = 'Live model unavailable. The closest evidence is below.';
+      clearInterval(timer);
+      if (ticket === latest && box.isConnected) { step(3, 'failed', 'no answer from the live model'); status.textContent = 'Live model unavailable. The closest evidence is below.'; }
     }
   }
 
@@ -159,7 +192,7 @@
       if (ticket !== latest) return;
       render(body);
       document.getElementById('answer-h').focus({preventScroll: true});
-      if (body.reading?.live) reading(query, ticket);
+      if (body.reading?.live) reading(query, ticket, body);
     } catch (e) {
       if (ticket !== latest) return;
       message(`<p class="q mono">${esc(query)}</p><${H} id="answer-h" tabindex="-1">The answer couldn’t load</${H}>
