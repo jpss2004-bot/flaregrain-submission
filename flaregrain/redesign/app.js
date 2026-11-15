@@ -15,7 +15,6 @@
     arrow: '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M1 5h8M5.5 1.5 9 5 5.5 8.5"/></svg>',
     check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="m5 8.3 2 2 4-4.3"/></svg>',
   };
-  const DEFAULT_Q = 'How long did the flame take to go out after airflow was cut?';
   const slot = document.getElementById('answer');
   const form = document.getElementById('ask-form');
   const input = document.getElementById('ask-input');
@@ -113,15 +112,16 @@
         <span class="mono" id="ask-reading-h">AI summary · NASA sources linked below</span>
         <${H} tabindex="-1" id="answer-h">Reading the NASA sources…</${H}>
         ${a.limitation ? `<p class="plain" id="ask-lede" hidden>${esc(a.limitation)}</p>` : ''}
+        ${STAGE_LINE}
         <div id="ask-lines"></div>
         <div class="support-answer" id="ask-support"></div>
         <div class="ask-making">
-          <details class="related ask-made" open><summary class="mono">How this answer is made</summary>
+          <details class="related ask-made"><summary class="mono">How this answer was made</summary>
             <ol class="ask-steps" aria-label="How this answer is made">${['Sources found', 'Facts built', 'Writing', 'Checked', 'Matched'].map((name, i) =>
               `<li data-state="pending"><span class="mono n">${i + 1}</span><div><b>${name}</b> <span class="st"></span></div></li>`).join('')}</ol>
           </details>
         </div>
-        <p class="small" id="ask-reading-status" role="status">The live model is writing an answer from the sources below. Only sentences the checker matches to them are shown.</p>
+        <p class="small" id="ask-reading-status" role="status" hidden></p>
       </section>
       ${a.passages.length ? `<section class="says line-in" style="--d:3" aria-labelledby="says-h">
         <span class="mono" id="says-h">What the sources say</span>
@@ -167,6 +167,32 @@
     threadBox.innerHTML = earlier.length ? `<span class="mono">Earlier</span>${earlier.map(q => `<button type="button" class="earlier" data-ask="${esc(q)}">${esc(q)}</button>`).join('')}<button type="button" class="clear" id="clear-thread">Clear conversation</button>` : '';
   }
 
+  // The loading stage's one status line. show(key, html) swaps its text with a short crossfade; the same key twice is a no-op.
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const STAGE_LINE = '<p class="ask-stage" id="ask-stage" role="status"><i class="live-dot" aria-hidden="true"></i><span class="ts"><span class="t">Searching NASA records…</span></span></p>';
+  function stageLine() {
+    const stage = document.getElementById('ask-stage'); let shown = 1;
+    return {el: stage, show(key, html) {
+      const holder = stage && stage.querySelector('.ts'); if (!holder || shown === key) return; shown = key;
+      const old = holder.querySelector('.t:not(.out)'), next = document.createElement('span');
+      next.className = 't in'; next.innerHTML = html;
+      if (old) { if (reduced) old.remove(); else { old.className = 't out'; setTimeout(() => old.remove(), 260); } }
+      holder.appendChild(next);
+    }};
+  }
+  const found = a => `Found ${plural(a.ranks.length, 'record', 'records')}${a.passages.length ? ` and ${plural(a.passages.length, 'report page', 'report pages')}` : ''}`;
+  // A prepared answer gets the same thinking stage, about 2.5 s: stage 3 says it is the team's checked answer.
+  async function think(a, ticket) {
+    const line = stageLine(), live = () => ticket === latest && line.el && line.el.isConnected;
+    setLoading(true);
+    await wait(700); if (!live()) return; line.show(2, found(a));
+    await wait(700); if (!live()) return; line.show(3, 'Using the team’s checked answer…');
+    await wait(600); if (!live()) return; line.show(4, 'Checking every sentence…');
+    await wait(500); if (!live()) return;
+    setLoading(false); render(a);
+    document.getElementById('answer-h').focus({preventScroll: true});
+  }
+
   // Model-written Ask: the server sends the question and the sources it ranked to the team's model; only checked sentences come back.
   async function reading(query, ticket, a) {
     const box = document.getElementById('ask-reading'), status = document.getElementById('ask-reading-status');
@@ -174,21 +200,29 @@
     if (!box || !status || !steps || !made) return;
     // While the model writes, the page's background sphere is the loader (styles.css, .ask-writing); once a reply lands
     // it settles and the steps stay as "How this answer was made".
-    const loadTimer = setTimeout(() => { if (ticket === latest && box.isConnected) setLoading(true); }, 300); // an answer asked before returns first
+    setLoading(true);
     // No answer to show: the neutral title and today's message take the headline's place.
-    const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden'); settle('fallback', true);
+    const neutral = () => { document.getElementById('answer-h').textContent = 'From the closest NASA sources'; document.getElementById('ask-lede')?.removeAttribute('hidden'); settle('fallback');
       const sources = document.getElementById('sources'); if (sources) sources.open = true; };
-    const settle = (state, open) => { clearTimeout(loadTimer); setLoading(false); // Hold the block's height while the answer swaps in, so nothing below jumps; then let it ease to its own height.
-      box.style.minHeight = box.offsetHeight + 'px';
-      setTimeout(() => { if (box.isConnected) box.style.minHeight = '0px'; }, 1000); box.dataset.state = state; made.open = open; made.querySelector('summary').textContent = 'How this answer was made'; };
+    // The loading stage ends: the sphere settles, and the excerpts and record chips (hidden while loading) arrive after the answer's lines.
+    const settle = state => { clearTimeout(toFound); clearTimeout(toWriting); setLoading(false);
+      const after = box.querySelectorAll('.rise').length;
+      slot.querySelectorAll('.says, .how').forEach((el, i) => { el.classList.remove('line-in'); el.classList.add('rise'); el.style.setProperty('--i', after + i); });
+      box.dataset.state = state; };
     const step = (n, state, html) => { const li = steps.children[n - 1]; li.dataset.state = state; li.querySelector('.st').innerHTML = html; };
     const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     step(1, 'done', `${count(a.ranks.length, 'checked record', 'checked records')} and ${count(a.passages.length, 'NASA report page', 'NASA report pages')}, ranked for this question`);
     step(2, 'done', `${count(a.reading.facts || 0, 'numbered fact', 'numbered facts')} from those sources`);
     const started = Date.now();
-    step(3, 'active', `qwen3:4b on the team’s Mac mini is writing… <span class="tick">0 s</span>`);
-    const tick = steps.children[2].querySelector('.tick'); // only the counter changes each second
-    const timer = setInterval(() => { if (box.isConnected) tick.textContent = Math.floor((Date.now() - started) / 1000) + ' s'; else clearInterval(timer); }, 1000);
+    step(3, 'active', 'qwen3:4b on the team’s Mac mini is writing…');
+    // While loading the page shows one live status line that moves through four stages; each swap is a short crossfade.
+    const line = stageLine(), stage = line.el, seconds = () => Math.floor((Date.now() - started) / 1000) + ' s';
+    const STAGES = [null, 'Searching NASA records…', found(a),
+      `Writing from ${count(a.reading.facts || 0, 'fact', 'facts')}… <span class="tick"></span>`, 'Checking every sentence…'];
+    const show = n => { line.show(n, STAGES[n]); if (n === 3) { const tick = stage.querySelector('.t:not(.out) .tick'); if (tick && !tick.textContent) tick.textContent = seconds(); } };
+    // Stages 1 and 2 are done before the page is drawn; each is held 0.7 s so it can be read.
+    const toFound = setTimeout(() => show(2), 700), toWriting = setTimeout(() => show(3), 1400);
+    const timer = setInterval(() => { if (!box.isConnected) return clearInterval(timer); const tick = stage.querySelector('.t:not(.out) .tick'); if (tick) tick.textContent = seconds(); }, 1000);
     const reasonList = list => {
       const counts = new Map(); (list || []).forEach(r => counts.set(r, (counts.get(r) || 0) + 1));
       return counts.size ? `<ul class="ask-reasons">${[...counts].map(([r, n]) => `<li>${esc(r)}${n > 1 ? ` (${n})` : ''}</li>`).join('')}</ul>` : '';
@@ -201,10 +235,11 @@
       const res = await fetch('/api/ask-reading', {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify({q: query})});
       const body = await res.json().catch(() => ({}));
       clearInterval(timer);
-      if (ticket !== latest || !box.isConnected) return; // another question was asked meanwhile
+      if (ticket !== latest || !box.isConnected) { clearTimeout(toFound); clearTimeout(toWriting); return; } // another question was asked meanwhile
       if (!res.ok || body.status !== 'ok') {
         neutral();
         const reason = body.reason || 'unavailable';
+        show(reason === 'scope' ? 1 : reason === 'none' || reason === 'mismatch' ? 4 : 3); stage.classList.add('stopped'); // the line stops on the stage that failed
         if (reason === 'scope') step(1, 'failed', 'outside what Flaregrain covers');
         else if (reason === 'none') {
           step(3, 'done', wrote(body));
@@ -213,9 +248,17 @@
           step(3, 'done', wrote(body)); step(4, 'done', 'the checker ran on the proxy');
           step(5, 'failed', 'the answer did not name the same sources and facts, so it is not shown');
         } else step(3, 'failed', 'no answer from the live model');
-        status.textContent = body.message || 'Live model unavailable. The closest evidence is below.';
+        status.textContent = body.message || 'Live model unavailable. The closest evidence is below.'; status.hidden = false;
         return;
       }
+      // Every answer finishes the stages. Stages 1 and 2 are held, then stage 3 says what really happened: a fresh answer was
+      // written just now; one asked before is recalled, with the time it was written (0.6 s). Then "Checking…" for 0.5 s.
+      clearTimeout(toWriting);
+      await wait(Math.max(0, 1400 - (Date.now() - started)));
+      if (body.cached && body.generatedAt) { line.show('recall', `Recalling the answer written at ${at(body)} AST…`); await wait(600); } else show(3);
+      show(4); await wait(500);
+      if (ticket !== latest || !box.isConnected) return;
+      stage.remove();
       step(3, 'done', wrote(body));
       step(4, 'done', `kept ${count(body.sentences.length, 'sentence', 'sentences')}, removed ${body.removed}` + reasonList(body.reasons));
       step(5, 'done', `same sources and facts fingerprint <code>${esc(body.factsHash || '')}</code>`);
@@ -229,24 +272,23 @@
         return `<a class="cite-link" href="${esc(src.url)}" target="_blank" rel="noopener" title="${esc(src.label)}">${esc(name)}${page ? ' · p. ' + esc(page) : ''} ${ICON.out}</a>`;
       };
       const links = s => `<span class="cites-inline">${s.sources.map(short).join(' ')}</span>`;
-      const line = (s, i) => `<p class="plain rise" style="--i:${i + 1}">${esc(s.text)} ${links(s)}</p>`;
+      const sentence = (s, i) => `<p class="plain rise" style="--i:${i + 1}">${esc(s.text)} ${links(s)}</p>`;
       const [first, ...others] = body.sentences, reused = body.cached && body.generatedAt, n = body.sentences.length;
       // The answer arrives line by line: headline, then each sentence, then the badge and Compare.
       const h = document.getElementById('answer-h');
       h.innerHTML = `${esc(first.text)} ${links(first)}`; h.classList.add('rise');
       document.getElementById('ask-lede')?.remove();
-      document.getElementById('ask-lines').innerHTML = others.map(line).join('');
+      document.getElementById('ask-lines').innerHTML = others.map(sentence).join('');
       document.getElementById('ask-support').innerHTML =
         `<button class="verified rise" style="--i:${n}" type="button" id="verified">${ICON.check}${esc(n)} passed the checker, ${esc(body.removed)} removed${reused ? ` · asked before, ${at(body)} AST` : Number.isFinite(body.seconds) ? ` · ${body.seconds} s` : ''}</button>`;
       // The same Compare button as a prepared answer, when the two top-ranked records can be compared.
       const pair = a.ranks.slice(0, 2);
       if (pair.length === 2 && pair.every(r => r.comparable)) document.getElementById('ask-support').insertAdjacentHTML('afterend',
         `<div class="next rise" style="--i:${n + 1}"><a class="btn btn-ink" href="compare.html?ids=${encodeURIComponent(pair[0].id)},${encodeURIComponent(pair[1].id)}&q=${encodeURIComponent(query)}">Compare ${esc(pair[0].name)} and ${esc(pair[1].name)} ${ICON.arrow}</a></div>`);
-      settle(reused ? 'reused' : 'done', false);
-      status.textContent = ''; status.hidden = true;
+      settle(reused ? 'reused' : 'done');
     } catch {
       clearInterval(timer);
-      if (ticket === latest && box.isConnected) { neutral(); step(3, 'failed', 'no answer from the live model'); status.textContent = 'Live model unavailable. The closest evidence is below.'; }
+      if (ticket === latest && box.isConnected) { neutral(); show(3); stage.classList.add('stopped'); step(3, 'failed', 'no answer from the live model'); status.textContent = 'Live model unavailable. The closest evidence is below.'; status.hidden = false; }
     }
   }
 
@@ -262,13 +304,14 @@
     }
     const ticket = ++latest;
     setLoading(false);
-    message(`<p class="searching mono" role="status">Searching the NASA records…</p>`);
+    message(`<div class="ask-shell"><${H} id="answer-h" tabindex="-1">Reading the NASA sources…</${H}>${STAGE_LINE}</div>`);
     if (scroll) slot.scrollIntoView({behavior: reduced ? 'auto' : 'smooth', block: 'start'});
     try {
       const res = await fetch('/api/ask?q=' + encodeURIComponent(query), {headers: {Accept: 'application/json'}});
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'The answer could not be loaded.');
       if (ticket !== latest) return;
+      if (body.findings.length && !body.reading?.live) return think(body, ticket); // the prepared answer
       render(body);
       document.getElementById('answer-h').focus({preventScroll: true});
       if (body.reading?.live) reading(query, ticket, body);
@@ -322,9 +365,11 @@
     });
   }
   if (isAnswerPage) {
-    const q = new URLSearchParams(location.search).get('q') || DEFAULT_Q;
-    input.value = q;
-    ask(q, {scroll: false});
+    const q = new URLSearchParams(location.search).get('q');
+    if (q) { input.value = q; ask(q, {scroll: false}); }
+    else { // arriving from the nav: an empty box, focused and ready; the page keeps one (visually hidden) h1 until an answer brings its own
+      input.value = ''; slot.innerHTML = '<h1 class="vh">Ask the experiments</h1>'; input.focus();
+    }
   }
 
   /* ---------- Summary cards: live counts from /api/summary ---------- */
